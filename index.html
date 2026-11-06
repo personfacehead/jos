@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Journey of Self</title>
+    
+    <!-- GOOGLE DRIVE SYNC INFRASTRUCTURE (DORMANT) -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js"></script>
+
+    <!-- MAIN STYLESHEET -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="theme-daybreak">
+    <!-- UNIVERSAL VISUAL + HAPTIC FEEDBACK TOAST -->
+    <div class="action-toast-overlay" id="action-toast-overlay">
+        <div class="action-toast-card" id="action-toast-card">
+            <span id="action-toast-icon" style="font-size:1.25rem;">✨</span>
+            <span id="action-toast-text">Logged!</span>
+        </div>
+    </div>
+
+    <div class="dashboard-container">
+        <!-- RESPONSIVE HEADER -->
+        <div class="top-header-grid">
+            <header class="app-header">
+                <h1>Journey of Self</h1>
+                <p class="subtitle">Your Daily Life Companion</p>
+            </header>
+
+            <div class="system-toggle">
+                <button class="sys-btn" id="btn-midnight" onclick="toggleTheme('theme-midnight')">Terminal</button>
+                <button class="sys-btn active" id="btn-daybreak" onclick="toggleTheme('theme-daybreak')">Daybreak</button>
+            </div>
+
+            <div class="top-right-actions">
+                <button class="sync-pill" onclick="openSettingsModal()" title="Settings & Units">
+                    <span>⚙️</span>
+                    <div class="sync-pill-text">
+                        <span class="sync-pill-label">Units</span>
+                        <span class="sync-pill-val" id="unit-mode-label">Imperial</span>
+                    </div>
+                </button>
+                <button class="sync-pill" onclick="alert('Google Drive Sync Infrastructure is installed and dormant. Awaiting OAuth credentials.')">
+                    <span>☁️</span>
+                    <div class="sync-pill-text">
+                        <span class="sync-pill-label">Sync</span>
+                        <span class="sync-pill-val" id="sync-status">Local</span>
+                    </div>
+                </button>
+            </div>
+        </div>
+
+        <!-- CARD 1: TODAY'S MEALS -->
+        <div class="daily-summary-bar" onclick="openJournalModal()">
+            <div class="summary-bar-header">
+                <span class="summary-bar-title">📖 Today's Meals</span>
+                <span class="summary-bar-action">Open Log &amp; Water →</span>
+            </div>
+            <div class="summary-stream-row" id="summary-meals-stream">0 kcal | 0/0/0% | 0/96 oz</div>
+        </div>
+
+        <!-- CARD 2: GOALS & PROGRESS W/ OPTION B INLINE CURRENT WEIGHT EDITOR + GRAPH BUTTON -->
+        <div class="daily-summary-bar bar-goals">
+            <div class="summary-bar-header">
+                <span class="summary-bar-title">🎯 Goals &amp; Progress</span>
+                <div style="display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap;">
+                    <button type="button" class="weight-graph-launch-btn" onclick="openWeightGraphModal()">📈 Weight Graph</button>
+                    <button type="button" class="summary-bar-action" onclick="openHorizonModal()">Targets &amp; Profile →</button>
+                </div>
+            </div>
+            <div class="inline-weight-strip">
+                <div class="inline-weight-controls">
+                    <span style="font-family:var(--font-mono); font-size:0.76rem; font-weight:900; color:var(--panel-text-muted); text-transform:uppercase;">⚖️ Current Weight:</span>
+                    <button type="button" class="inline-wt-step-btn" onclick="stepMainPageWeight(-0.5)">−0.5</button>
+                    <input type="number" id="main-current-weight-input" class="inline-wt-input" step="0.1" value="236.0" onchange="logMainPageWeight(this.value)">
+                    <span id="main-wt-unit-lbl" style="font-family:var(--font-mono); font-size:0.8rem; font-weight:900;">lbs</span>
+                    <button type="button" class="inline-wt-step-btn" onclick="stepMainPageWeight(0.5)">+0.5</button>
+                    <button type="button" class="inline-wt-save-btn" onclick="logMainPageWeight(document.getElementById('main-current-weight-input').value)">✓ Log</button>
+                </div>
+                <div id="summary-goals-stream" style="font-family:var(--font-mono); font-size:0.84rem; font-weight:900; color:var(--panel-text-main);">Goal 155.0 lbs | -1.4 lbs/wk</div>
+            </div>
+        </div>
+
+        <!-- CARD 3: EXERCISE & MOVEMENT -->
+        <div class="daily-summary-bar bar-exercise" onclick="openExerciseModal()">
+            <div class="summary-bar-header">
+                <span class="summary-bar-title">🏃 Exercise &amp; Movement</span>
+                <span class="summary-bar-action">Log Workout →</span>
+            </div>
+            <div class="summary-stream-row" id="summary-exercise-stream">6,500 steps | 0 kcal | 0g fat</div>
+        </div>
+
+        <!-- 8-SWATCH PALETTE BAR + DAILY CALORIE TARGET MARQUEE -->
+        <div class="panel controls-bar">
+            <div class="color-picker-row">
+                <button class="color-dot clear-dot" onclick="setPanelColor('default')" title="Default Translucent Glass"></button>
+                <button class="color-dot" style="background: rgb(0, 240, 255);" onclick="setPanelColor('0, 240, 255')" title="Neon Cyan"></button>
+                <button class="color-dot" style="background: rgb(57, 255, 20);" onclick="setPanelColor('57, 255, 20')" title="Electric Lime"></button>
+                <button class="color-dot" style="background: rgb(138, 43, 226);" onclick="setPanelColor('138, 43, 226')" title="Royal Violet"></button>
+                <button class="color-dot" style="background: rgb(255, 83, 73);" onclick="setPanelColor('255, 83, 73')" title="Warm Coral"></button>
+                <button class="color-dot" style="background: rgb(255, 0, 255);" onclick="setPanelColor('255, 0, 255')" title="Synthwave Magenta"></button>
+                <button class="color-dot" style="background: rgb(255, 215, 0);" onclick="setPanelColor('255, 215, 0')" title="Solar Gold"></button>
+                <button class="color-dot" style="background: rgb(0, 105, 148);" onclick="setPanelColor('0, 105, 148')" title="Deep Sea Blue"></button>
+            </div>
+            <button type="button" class="fuel-target-marquee" onclick="openHorizonModal()" title="Tap to adjust Daily Calorie Target or Activity Level">
+                <span class="fuel-marquee-cals" id="main-fuel-cals">🔥 1,500 KCAL TARGET</span>
+                <span class="fuel-marquee-profile" id="main-fuel-profile">Level 2 (12/38/50%) ✎</span>
+            </button>
+        </div>
+
+        <!-- 4 CLICKABLE MACRO PROGRESS CARDS (IDEA 4) -->
+        <div id="bar-view" class="macro-board">
+            <div class="panel macro-card" onclick="openMacroDetailModal('netCarbs')">
+                <div class="macro-header"><h3 style="color: var(--text-carb);">Net Carbs</h3><span class="macro-ratio" id="lbl-carb-pct">12%</span></div>
+                <div class="progress-bar"><div class="fill carb-fill" id="bar-carb-fill" style="width: 0%;"></div><div class="fill carb-fill shadow" id="shadow-carb-fill" style="width: 0%;"></div></div>
+                <p><span id="bar-carb-logged">0</span>g <span id="bar-carb-shadow-txt" class="shadow-text"></span><br><span class="target">Limit <span id="bar-carb-target">45g</span></span></p>
+                <span class="macro-tap-hint">ⓘ Tap for Breakdown</span>
+            </div>
+            <div class="panel macro-card" onclick="openMacroDetailModal('fiber')">
+                <div class="macro-header"><h3 style="color: var(--text-fib);">Fiber</h3><span class="macro-ratio" id="lbl-fiber-rate">15g/1k</span></div>
+                <div class="progress-bar"><div class="fill fiber-fill" id="bar-fiber-fill" style="width: 0%;"></div><div class="fill fiber-fill shadow" id="shadow-fiber-fill" style="width: 0%;"></div></div>
+                <p><span id="bar-fiber-logged">0</span>g <span id="bar-fiber-shadow-txt" class="shadow-text"></span><br><span class="target">Goal <span id="bar-fiber-target">23g</span></span></p>
+                <span class="macro-tap-hint">ⓘ Tap for Breakdown</span>
+            </div>
+            <div class="panel macro-card" onclick="openMacroDetailModal('protein')">
+                <div class="macro-header"><h3 style="color: var(--text-pro);">Protein</h3><span class="macro-ratio" id="lbl-pro-pct">38%</span></div>
+                <div class="progress-bar"><div class="fill protein-fill" id="bar-pro-fill" style="width: 0%;"></div><div class="fill protein-fill shadow" id="shadow-pro-fill" style="width: 0%;"></div></div>
+                <p><span id="bar-pro-logged">0</span>g <span id="bar-pro-shadow-txt" class="shadow-text"></span><br><span class="target">Goal <span id="bar-pro-target">143g</span></span></p>
+                <span class="macro-tap-hint">ⓘ Tap for Breakdown</span>
+            </div>
+            <div class="panel macro-card" onclick="openMacroDetailModal('fat')">
+                <div class="macro-header"><h3 style="color: var(--text-fat);">Fat</h3><span class="macro-ratio" id="lbl-fat-pct">50%</span></div>
+                <div class="progress-bar"><div class="fill fat-fill" id="bar-fat-fill" style="width: 0%;"></div><div class="fill fat-fill shadow" id="shadow-fat-fill" style="width: 0%;"></div></div>
+                <p><span id="bar-fat-logged">0</span>g <span id="bar-fat-shadow-txt" class="shadow-text"></span><br><span class="target">Limit <span id="bar-fat-target">83g</span></span></p>
+                <span class="macro-tap-hint">ⓘ Tap for Breakdown</span>
+            </div>
+        </div>
+
+        <div class="main-workspace">
+            <section class="panel">
+                <h2>Meal Staging</h2>
+                <div class="meal-slot-bar" id="meal-slot-bar">
+                    <button class="slot-pill active" onclick="selectMealSlot('Breakfast')">Breakfast</button>
+                    <button class="slot-pill" onclick="selectMealSlot('Lunch')">Lunch</button>
+                    <button class="slot-pill" onclick="selectMealSlot('Dinner')">Dinner</button>
+                    <button class="slot-pill" onclick="selectMealSlot('Evening Meal')">Evening Meal</button>
+                    <button class="slot-pill" onclick="selectMealSlot('Snacks')">Snacks</button>
+                </div>
+
+                <!-- HYDRATION LOGGER W/ RISING WAVE VISUAL + UNDO & RESET BUTTONS -->
+                <div class="staging-water-strip" id="staging-water-strip">
+                    <div class="water-wave-bg" id="water-wave-bg"></div>
+                    <div class="water-bubble-layer" id="water-bubble-layer"></div>
+                    <div class="staging-water-top">
+                        <span>💧 Log Hydration with Meal</span>
+                        <span id="staging-water-readout" style="color:var(--text-pro);">0/96 oz</span>
+                    </div>
+                    <div class="staging-water-btns" id="staging-water-btns"></div>
+                </div>
+
+                <div class="hero-btn-row">
+                    <button class="hero-staging-btn hero-pantry-btn" onclick="openPantry('all')">
+                        <span style="font-size: 1.35rem;">🔥</span> Pantry
+                    </button>
+                    <button class="hero-staging-btn hero-cookbook-btn" onclick="openCookbookModal()">
+                        <span style="font-size: 1.35rem;">🍳</span> Cookbook
+                    </button>
+                </div>
+
+                <!-- 9-PILL CULINARY SPIN STYLE BAR + 3-SECOND SPINNING PLATE ANIMATION STAGE -->
+                <div class="spin-style-box">
+                    <div class="spin-style-label">✨ Customize Spin Style (Or Leave on Surprise Me)</div>
+                    <div class="spin-style-bar" id="spin-style-bar">
+                        <button type="button" class="spin-style-pill active" data-style="surprise" onclick="selectSpinStyle('surprise')">🎲 Surprise Me</button>
+                        <button type="button" class="spin-style-pill" data-style="fusion" onclick="selectSpinStyle('fusion')">🌐 Fusion</button>
+                        <button type="button" class="spin-style-pill" data-style="med" onclick="selectSpinStyle('med')">🌊 Med</button>
+                        <button type="button" class="spin-style-pill" data-style="asian" onclick="selectSpinStyle('asian')">🥢 Asian</button>
+                        <button type="button" class="spin-style-pill" data-style="curry" onclick="selectSpinStyle('curry')">🍛 Curry/Thai</button>
+                        <button type="button" class="spin-style-pill" data-style="latin" onclick="selectSpinStyle('latin')">🌮 Mexican/Latin</button>
+                        <button type="button" class="spin-style-pill" data-style="american" onclick="selectSpinStyle('american')">🥩 American</button>
+                        <button type="button" class="spin-style-pill" data-style="plant" onclick="selectSpinStyle('plant')">🌱 Plant Bowl</button>
+                        <button type="button" class="spin-style-pill" data-style="breakfast" onclick="selectSpinStyle('breakfast')">🍳 Breakfast</button>
+                    </div>
+                    <button type="button" class="remix-plate-btn" id="spin-plate-btn" onclick="spinMealRemix()">
+                        <span style="font-size: 1.3rem;">🎲</span> Spin a Plate (Surprise Me)
+                    </button>
+                    <div class="plate-spin-stage" id="plate-spin-stage">
+                        <div class="spinning-plate-wheel" id="spinning-plate-wheel">🍽️</div>
+                        <div style="font-family:var(--font-mono); font-size:0.8rem; font-weight:900; color:var(--glow-fat);" id="spin-stage-status">Spinning Chef's Plate...</div>
+                        <div class="spin-slot-preview-row" id="spin-slot-preview-row"></div>
+                    </div>
+                    <div class="spin-style-label" id="spin-lock-hint" style="display: none; border-color: var(--text-pro); box-shadow: 0 3px 12px rgba(2, 132, 199, 0.22);">
+                        🔒 Lock What You Want &amp; Spin Again!
+                    </div>
+                </div>
+
+                <ul class="sandbox-list" id="sandbox-list"><li class="empty-state">No ingredients staged.<br>Tap Pantry, Cookbook, or Spin a Plate above.</li></ul>
+                
+                <div style="display: flex; flex-direction: column; gap: 0.65rem; width: 100%;">
+                    <button class="primary-btn" id="commit-meal-btn" onclick="commitMeal()">Add to Breakfast</button>
+                    <button class="undo-btn" id="undo-btn" onclick="undoCommit()">Undo Last Addition</button>
+                    <button class="secondary-btn" style="margin-top: 0.25rem; border-color: var(--text-fat); color: var(--text-fat);" onclick="endCycle()">Start New Day (Reset)</button>
+                </div>
+            </section>
+
+            <!-- DYNAMIC ENCOURAGEMENT RING + MEAL VIBE BADGE -->
+            <section class="panel" style="justify-content: center;">
+                <h2 id="quality-panel-title">Staged Meal Quality</h2>
+                <div class="score-circle" id="score-ring"><span class="score-value" id="meal-score-value">-</span></div>
+                <div>
+                    <span id="staged-cals" style="font-size: 2rem; font-weight: 900; font-family: var(--font-mono);">0</span>
+                    <br><span id="quality-cal-label" style="font-size: 0.76rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; color: var(--panel-text-muted);">Staged Calories</span>
+                </div>
+                <div><span class="meal-vibe-badge" id="meal-vibe-badge">✨ Ready for Ingredients</span></div>
+            </section>
+        </div>
+
+        <!-- BOTTOM LAUNCHER BUTTONS -->
+        <div class="bottom-launchers-stack">
+            <button type="button" class="sanctuary-launch-btn" onclick="openSanctuaryModal()">
+                <span class="sanctuary-launch-title">✨ Daily Rhythm &amp; Inner Sanctuary</span>
+                <span class="sanctuary-launch-sub">Mindfulness • Rest • Well-Being</span>
+            </button>
+
+            <button type="button" class="journal-record-launch-btn" onclick="openVoiceJournalModal()">
+                <span class="journal-launch-title"><span>🔴</span> Personal Journal &amp; Voice Studio</span>
+                <span class="journal-launch-sub">Written Reflections • Auto-Transcription • 5-Min Voice Memos</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- DEDICATED DAILY RHYTHM & INNER SANCTUARY MODAL PAGE -->
+    <div class="modal-overlay" id="sanctuary-modal">
+        <div class="modal-content" style="max-width: 780px;">
+            <div class="modal-header">
+                <div class="modal-header-top">
+                    <div>
+                        <h2>Daily Rhythm &amp; Inner Sanctuary</h2>
+                        <div style="font-family:var(--font-mono); font-size:0.68rem; font-weight:800; text-transform:uppercase; letter-spacing:1.8px; color:#8b5cf6; text-align:left; margin-top:0.15rem;">Mindfulness • Rest • Well-Being</div>
+                    </div>
+                    <button class="close-modal" onclick="closeSanctuaryModal()">&times;</button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="sanctuary-timing-guide">
+                    ☀️ <strong>Morning / Daytime:</strong> Log last night's sleep hours and check off your Daily Foundations as you complete them.<br>
+                    🌙 <strong>Evening Check-In:</strong> Rate your 1–5 well-being scales, start your overnight fasting timer, and tap <strong>Submit &amp; Lock Day</strong> below.
+                </div>
+                <div class="sanctuary-locked-banner" id="sanctuary-locked-banner">
+                    🔒 Today's Sanctuary Check-In is Submitted &amp; Locked! Tap "Undo / Unlock" below if you need to make changes.
+                </div>
+                <div class="pattern-insight-banner" id="pattern-insight-box">
+                    ✨ <strong>What's Working:</strong> Log your meals, movement, and 1–5 well-being scales below to surface personal lifestyle patterns.
+                </div>
+                <div class="sanctuary-grid" id="sanctuary-interactive-wrap">
+                    <div class="custom-food-form">
+                        <div class="input-group">
+                            <label>Hours Slept (Log in Morning)</label>
+                            <div class="sleep-control-row">
+                                <input type="number" id="life-sleep-hrs" step="0.5" value="7.5" onchange="saveLifeData()" style="flex:1; text-align:center;">
+                                <button type="button" class="sleep-step-btn" onclick="adjustSleep(-0.5)">−30m</button>
+                                <button type="button" class="sleep-step-btn" onclick="adjustSleep(0.5)">+30m</button>
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label>Intermittent Fasting Timer</label>
+                            <div style="display:flex; gap:0.5rem; width:100%;">
+                                <button type="button" class="secondary-btn" id="fasting-toggle-btn" style="flex:1; padding:0.75rem 0.5rem; font-size:0.8rem;" onclick="toggleFasting()">Start Fast</button>
+                                <button type="button" class="sleep-step-btn" id="fast-plus-hr-btn" style="display:none;" onclick="adjustFastStart(1)">+1h</button>
+                            </div>
+                        </div>
+                        <div id="fasting-status-banner" class="fasting-banner">
+                            Eating Window Open • Tap Start Fast after your final meal.
+                        </div>
+                        <div class="sanctuary-scale-master-header">
+                            🌙 Evening Well-Being Scales (1 = Low • 5 = Elevated)
+                        </div>
+                        <div class="input-group"><label>Overall Mood (1 = Low • 5 = Elevated)</label><div class="scale-btn-group" id="scale-mood"></div></div>
+                        <div class="input-group"><label>Energy Resonance (1 = Low • 5 = Elevated)</label><div class="scale-btn-group" id="scale-energy"></div></div>
+                        <div class="input-group"><label>Mental Clarity (1 = Low • 5 = Elevated)</label><div class="scale-btn-group" id="scale-clarity"></div></div>
+                        <div class="input-group"><label>Physical Comfort (1 = Low • 5 = Elevated)</label><div class="scale-btn-group" id="scale-comfort"></div></div>
+                    </div>
+                    <div class="custom-food-form">
+                        <div style="font-size:0.72rem; font-family:var(--font-mono); font-weight:800; color:var(--panel-text-muted); text-transform:uppercase; letter-spacing:1.4px;">Daily Foundations (Check Off Anytime Today)</div>
+                        <div id="daily-habits-list" style="display:flex; flex-direction:column; gap:0.55rem; width:100%;"></div>
+                        <div style="display:flex; gap:0.45rem; width:100%;">
+                            <input type="text" id="new-habit-input" placeholder="Add a new daily foundation..." style="flex:1; padding:0.65rem 0.85rem; border-radius:10px; border:1.5px solid var(--border-light); background:var(--input-bg); color:var(--panel-text-main); font-size:0.84rem; font-weight:700;">
+                            <button type="button" class="sleep-step-btn" onclick="addHabitItem()">+ Add</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="primary-btn" id="sanctuary-submit-btn" style="flex:1; background:#8b5cf6; color:#ffffff;" onclick="submitAndLockSanctuary()">🔒 Submit &amp; Lock Today's Sanctuary</button>
+                <button type="button" class="secondary-btn" id="sanctuary-unlock-btn" style="display:none; flex:1; border-color:var(--text-carb); color:var(--text-carb);" onclick="unlockSanctuaryDay()">🔓 Undo / Unlock to Edit</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DEDICATED PERSONAL JOURNAL, SPEECH TRANSCRIPTION & 5-MINUTE VOICE STUDIO MODAL -->
+    <div class="modal-overlay" id="voice-journal-modal">
+        <div class="modal-content" style="max-width: 660px;">
+            <div class="modal-header">
+                <div class="modal-header-top">
+                    <h2>Personal Journal &amp; Voice Studio</h2>
+                    <button class="close-modal" onclick="closeVoiceJournalModal()">&times;</button>
+                </div>
+            </div>
+            <div class="modal-body custom-food-form">
+                <div class="input-group">
+                    <div style="display:flex; justify-content:space-between; align-items:center; width:100%; flex-wrap:wrap; gap:0.4rem;">
+                        <label>Written Reflection &amp; Auto-Transcription</label>
+                        <button type="button" class="unit-btn" id="vj-transcribe-btn" style="border-color:var(--text-pro); color:var(--text-pro); padding:0.32rem 0.7rem;" onclick="toggleSpeechTranscription()">📝 Dictate &amp; Auto-Transcribe</button>
+                    </div>
+                    <textarea id="vj-text-input" rows="3" placeholder="Type a note or tap '📝 Dictate & Auto-Transcribe' to turn your speech into punctuated text..."></textarea>
+                </div>
+                <div style="background:var(--input-bg); border:1.5px solid var(--border-light); border-radius:14px; padding:1rem; display:flex; flex-direction:column; gap:0.75rem; align-items:center; text-align:center;">
+                    <div style="font-size:0.72rem; font-family:var(--font-mono); font-weight:800; color:var(--text-pro); text-transform:uppercase;">🎙️ Voice Memo Recorder (Max 5:00 • Auto-Saves Each Recording)</div>
+                    <div id="vj-timer-display" style="font-size:1.45rem; font-family:var(--font-mono); font-weight:900; color:var(--panel-text-main);">00:00 / 05:00</div>
+                    <canvas id="vj-waveform-canvas" width="520" height="60"></canvas>
+                    <div id="vj-audio-preview-wrap" style="width:100%; display:none;"></div>
+                    <input type="file" id="vj-native-audio-input" accept="audio/*" capture style="display:none;" onchange="handleNativeAudioFile(this)">
+                    <div style="display:flex; gap:0.6rem; width:100%; justify-content:center; flex-wrap:wrap;">
+                        <button type="button" class="primary-btn" id="vj-record-btn" style="max-width:230px; background:#99293d; color:#fff;" onclick="toggleVoiceRecording()">● Record New Voice Memo</button>
+                        <button type="button" class="secondary-btn" style="max-width:230px;" onclick="saveJournalEntry()">+ Save Written Note</button>
+                    </div>
+                </div>
+                <div style="font-size:0.74rem; font-family:var(--font-mono); font-weight:800; color:var(--panel-text-muted); text-transform:uppercase; margin-top:0.5rem;">Saved Journal Timeline</div>
+                <div id="vj-entries-list" style="display:flex; flex-direction:column; gap:0.75rem; width:100%;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PANTRY MODAL -->
+    <div class="modal-overlay" id="pantry-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-header-top">
+                    <h2>The Pantry</h2>
+                    <div style="display:flex; gap:0.45rem; align-items:center; flex-wrap:wrap;">
+                        <div class="view-mode-switch">
+                            <button type="button" class="view-mode-btn active" id="pantry-mode-list" onclick="setPantryViewMode('list')">☰ List View</button>
+                            <button type="button" class="view-mode-btn" id="pantry-mode-icons" onclick="setPantryViewMode('icons')">⊞ Icons</button>
+                        </div>
+                        <button class="unit-btn" style="padding:0.4rem 0.65rem; border-color:var(--text-pro); color:var(--text-pro); font-size:0.72rem;" onclick="openCustomFoodModal()">+ New Food</button>
+                        <button class="unit-btn" id="toggle-all-cats-btn" style="padding:0.4rem 0.65rem; font-size:0.72rem;" onclick="toggleAllPantryCategories()">Expand All</button>
+                        <button class="close-modal" onclick="closePantry()">&times;</button>
+                    </div>
+                </div>
+                <div class="compact-filter-bar">
+                    <button class="seg-filter-btn active" onclick="setFilter('all')">ALL</button>
+                    <button class="seg-filter-btn" onclick="setFilter('vitality')">9-10</button>
+                    <button class="seg-filter-btn" onclick="setFilter('nourish')">7-8</button>
+                    <button class="seg-filter-btn" onclick="setFilter('balance')">5-6</button>
+                    <button class="seg-filter-btn" onclick="setFilter('drift')">3-4</button>
+                    <button class="seg-filter-btn" onclick="setFilter('rogue')">0-2</button>
+                </div>
+                <input type="text" id="pantry-search" class="pantry-search-input" placeholder="🔍 Search 400 foods (auto-expands matches)..." oninput="renderPantry()">
+            </div>
+            <div class="modal-body" id="pantry-body"></div>
+            <div class="modal-footer"><button class="primary-btn" onclick="sendToSandbox()">Add Selected to Staging</button></div>
+        </div>
+    </div>
+
+    <!-- FDA NUTRITION LABEL MODAL -->
+    <div class="modal-overlay" id="fda-modal">
+        <div class="modal-content fda-modal-content" id="fda-modal-content"></div>
+    </div>
+
+    <!-- INTERACTIVE WEIGHT TREND GRAPH & WEIGH-IN HISTORY MODAL (OPTION B) -->
+    <div class="modal-overlay" id="weight-graph-modal">
+        <div class="modal-content" style="max-width: 680px;">
+            <div class="modal-header">
+                <div class="modal-header-top">
+                    <h2>Weight Progress &amp; Trend Graph</h2>
+                    <button class="close-modal" onclick="closeWeightGraphModal()">&times;</button>
+                </div>
+            </div>
+            <div class="modal-body custom-food-form">
+                <div style="background:var(--input-bg); border:1.5px solid var(--text-fat); border-radius:14px; padding:0.9rem 1rem; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:0.65rem;">
+                    <div style="font-family:var(--font-mono); font-size:0.78rem; font-weight:900; color:var(--panel-text-main);">⚖️ Log Today's Weigh-In:</div>
+                    <div style="display:flex; align-items:center; gap:0.45rem; flex-wrap:wrap;">
+                        <button type="button" class="inline-wt-step-btn" onclick="stepGraphModalWeight(-0.5)">−0.5</button>
+                        <input type="number" id="wg-quick-input" class="inline-wt-input" step="0.1" value="236.0">
+                        <span id="wg-unit-lbl" style="font-family:var(--font-mono); font-size:0.82rem; font-weight:900;">lbs</span>
+                        <button type="button" class="inline-wt-step-btn" onclick="stepGraphModalWeight(0.5)">+0.5</button>
+                        <button type="button" class="inline-wt-save-btn" onclick="logMainPageWeight(document.getElementById('wg-quick-input').value, true)">✓ Save Weigh-In</button>
+                    </div>
+                </div>
+
+                <div id="wg-stats-summary" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:0.6rem; width:100%; font-family:var(--font-mono); font-size:0.76rem; text-align:center;"></div>
+
+                <div id="wg-svg-container" style="width:100%; background:var(--input-bg); border:1.5px solid var(--border-light); border-radius:16px; padding:1rem 0.6rem; min-height:220px; display:flex; align-items:center; justify-content:center;"></div>
+
+                <div style="font-size:0.72rem; font-family:var(--font-mono); font-weight:800; color:var(--panel-text-muted); text-transform:uppercase; letter-spacing:1.2px;">Weigh-In Log History</div>
+                <div id="wg-history-list" style="display:flex; flex-direction:column; gap:0.45rem; width:100%; max-height:180px; overflow-y:auto;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="primary-btn" onclick="closeWeightGraphModal()">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PERSONAL HEALTH & METABOLIC REPORT MODAL (POPS UP ON PROFILE SAVE) -->
+    <div class="modal-overlay" id="health-report-modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <div class="modal-header-top">
+                    <h2>📊 Personal Health &amp; Metabolic Report</h2>
+                    <button class="close-modal" onclick="closeHealthReportModal()">&times;</button>
+                </div>
+            </div>
+            <div class="modal-body" id="health-report-body"></div>
+            <div class="modal-footer">
+                <button type="button" class="primary-btn" onclick="closeHealthReportModal()">Got It — Return to Dashboard</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CLICKABLE MACRO DEEP-DIVE BREAKDOWN MODAL (IDEA 4) -->
+    <div class="modal-overlay" id="macro-detail-modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <div class="modal-header-top">
+                    <h2 id="macro-detail-title">Macro Breakdown</h2>
+                    <button class="close-modal" onclick="closeMacroDetailModal()">&times;</button>
+                </div>
+            </div>
+            <div class="modal-body" id="macro-detail-body" style="text-align:left;"></div>
+            <div class="modal-footer">
+                <button type="button" class="primary-btn" onclick="closeMacroDetailModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GOALS, PROFILE, SINGLE UNIFIED ACTIVITY LEVEL & GRANULAR BIOMETRICS MODAL -->
+    <div class="modal-overlay" id="horizon-modal">
+        <div class="modal-content" style="max-width: 620px;">
+            <div class="modal-header">
+                <div class="modal-header-top">
+                    <h2>Goals, Macro Targets &amp; Personal Profile</h2>
+                    <button class="close-modal" onclick="closeHorizonModal()">&times;</button>
+                </div>
+            </div>
+            <div class="modal-body custom-food-form">
+                <div style="font-size:0.72rem; font-family:var(--font-mono); font-weight:800; color:var(--text-pro); text-transform:uppercase;">1. Unified Activity Level &amp; Macro Split</div>
+                
+                <div class="input-group" style="width:100%;">
+                    <label>Activity Level (Sets Both Calorie Burn &amp; Macro Split)</label>
+                    <input type="hidden" id="activity-preset" value="12-38-50">
+                    <div class="custom-dropdown-wrap" id="activity-dropdown-wrap">
+                        <button type="button" class="custom-dropdown-btn" onclick="toggleActivityDropdown(event)">
+                            <span id="activity-selected-text">Level 2: Light Active/Walking Pad</span>
+                            <span>▾</span>
+                        </button>
+                        <div class="custom-dropdown-menu" id="activity-dropdown-menu"></div>
+                    </div>
+                </div>
+
+                <div class="macro-row">
+                    <div class="input-group">
+                        <label>Daily Calorie Target</label>
+                        <input type="number" id="calorie-input" value="1500" step="25" oninput="calculateMacros(); previewSmartTargets();" style="text-align:center; font-size:1.1rem; font-family:var(--font-mono); color:var(--text-pro);">
+                    </div>
+                    <div class="input-group">
+                        <label>Goal Pace Preference</label>
+                        <select id="prof-goal-pace" onchange="previewSmartTargets()">
+                            <option value="auto" selected>Auto (Use Target Date)</option>
+                            <option value="gentle">Gentle (-0.75 lb / wk)</option>
+                            <option value="sustainable">Sustainable (-1.5 lbs / wk)</option>
+                            <option value="accelerated">Accelerated (-2.0 lbs / wk)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="ratio-controls" id="ratio-controls-panel">
+                    <div class="ratio-title">Custom Macro Split Override (Must Total 100%)</div>
+                    <div class="ratio-input"><label style="color: var(--text-carb);">Carbs</label><div class="pct-input-wrap"><input type="number" id="manual-carb" value="12" oninput="manualRatioUpdate()"><span class="pct-symbol">%</span></div></div>
+                    <div class="ratio-input"><label style="color: var(--text-pro);">Protein</label><div class="pct-input-wrap"><input type="number" id="manual-pro" value="38" oninput="manualRatioUpdate()"><span class="pct-symbol">%</span></div></div>
+                    <div class="ratio-input"><label style="color: var(--text-fat);">Fat</label><div class="pct-input-wrap"><input type="number" id="manual-fat" value="50" oninput="manualRatioUpdate()"><span class="pct-symbol">%</span></div></div>
+                    <span id="ratio-error" class="ratio-error">Error: Total must equal 100%</span>
+                </div>
+
+                <div style="border-top:1px solid var(--border-light); padding-top:0.85rem; font-size:0.72rem; font-family:var(--font-mono); font-weight:800; color:var(--text-pro); text-transform:uppercase;">2. Personal Biometrics &amp; Horizon Benchmarks</div>
+                <div class="macro-row">
+                    <div class="input-group"><label>Biological Sex</label><select id="prof-gender" onchange="previewSmartTargets()"><option value="male">Male</option><option value="female">Female</option></select></div>
+                    <div class="input-group"><label>Age (Years)</label><input type="number" id="prof-age" value="50" min="14" max="110" oninput="previewSmartTargets()"></div>
+                </div>
+
+                <!-- GRANULAR HEIGHT: FEET + INCHES (IMPERIAL) OR CM (METRIC) -->
+                <div id="imperial-height-wrap" class="macro-row">
+                    <div class="input-group"><label>Height (Feet)</label><input type="number" id="prof-height-ft" value="5" min="3" max="8" oninput="syncHeightFromFeetInches()"></div>
+                    <div class="input-group"><label>Height (Inches)</label><input type="number" id="prof-height-in" value="10" min="0" max="11.5" step="0.5" oninput="syncHeightFromFeetInches()"></div>
+                </div>
+                <div id="metric-height-wrap" class="input-group" style="display:none;">
+                    <label>Height (cm)</label>
+                    <input type="number" id="prof-height-cm" value="178" step="0.5" oninput="syncHeightFromCm()">
+                </div>
+                <input type="hidden" id="prof-height" value="70">
+
+                <!-- STARTING WEIGHT (OPTIONAL) & TARGET WEIGHT (NO CURRENT WEIGHT HERE) -->
+                <div class="macro-row">
+                    <div class="input-group">
+                        <label id="lbl-start-wt">Starting Weight (Optional — Recommended)</label>
+                        <input type="number" id="start-weight-input" step="0.1" placeholder="Optional (Uses 1st weigh-in)" oninput="previewSmartTargets()">
+                    </div>
+                    <div class="input-group">
+                        <label id="lbl-goal-wt">Target Goal Weight</label>
+                        <input type="number" id="target-weight-input" step="0.1" value="155.0" oninput="previewSmartTargets()">
+                    </div>
+                </div>
+
+                <div class="macro-row">
+                    <div class="input-group"><label>Target Goal Date</label><input type="date" id="target-date-input" value="2027-12-01" onchange="previewSmartTargets()"></div>
+                    <div class="input-group"><label id="lbl-waist">Waist at Navel (Optional)</label><input type="number" id="waist-input" step="0.25" placeholder="e.g. 40" oninput="previewSmartTargets()"></div>
+                </div>
+
+                <div class="macro-row">
+                    <div class="input-group"><label id="lbl-neck">Neck Circumference (Optional)</label><input type="number" id="neck-input" step="0.25" placeholder="e.g. 16.5 (For Navy BF%)" oninput="previewSmartTargets()"></div>
+                    <div class="input-group"><label id="lbl-hip">Hip Circumference (Optional)</label><input type="number" id="hip-input" step="0.25" placeholder="Optional" oninput="previewSmartTargets()"></div>
+                </div>
+
+                <div class="input-group">
+                    <label>Manual Body Fat % Override (Optional — Leave Blank for Auto Clinical Estimate)</label>
+                    <input type="number" id="bodyfat-input" step="0.5" placeholder="Auto-Estimated from Measurements" oninput="previewSmartTargets()">
+                </div>
+
+                <div id="smart-calc-readout" style="background:var(--input-bg); border:1.5px solid var(--text-pro); border-radius:12px; padding:0.9rem; font-family:var(--font-mono); font-size:0.78rem; line-height:1.55;"></div>
+                <div style="display:flex; gap:0.6rem; flex-wrap:wrap;">
+                    <button type="button" class="secondary-btn" style="flex:1; border-color:var(--text-pro); color:var(--text-pro);" onclick="applySmartRecommendation()">Apply Recommended Calories</button>
+                    <button type="button" class="primary-btn" style="flex:1;" onclick="saveTelemetry(true)">Save &amp; View Health Report</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- EXERCISE & MOVEMENT MODAL W/ CUSTOM 2-LINE GLASS DROPDOWN MENUS -->
+    <div class="modal-overlay" id="exercise-modal">
+        <div class="modal-content" style="max-width: 560px;">
+            <div class="modal-header"><div class="modal-header-top"><h2>Exercise, Steps &amp; Fat Burn</h2><button class="close-modal" onclick="closeExerciseModal()">&times;</button></div></div>
+            <div class="modal-body custom-food-form">
+                <div class="macro-row">
+                    <div class="input-group"><label>Today's Steps</label><input type="number" id="ex-steps-input" step="500" value="6500" onchange="updateStepsFromModal(this.value)"></div>
+                    <div class="input-group"><label>Daily Step Goal</label><input type="number" id="ex-step-goal-input" step="1000" value="10000" onchange="updateStepGoalFromModal(this.value)"></div>
+                </div>
+                <div style="display:flex; gap:0.45rem; flex-wrap:wrap;">
+                    <button type="button" class="unit-btn" style="flex:1; padding:0.5rem;" onclick="adjustSteps(1000)">+1,000 Steps</button>
+                    <button type="button" class="unit-btn" style="flex:1; padding:0.5rem;" onclick="adjustSteps(2500)">+2,500 Steps</button>
+                    <button type="button" class="unit-btn" style="flex:1; padding:0.5rem;" onclick="adjustSteps(5000)">+5,000 Steps</button>
+                </div>
+
+                <div style="border-top:1px solid var(--border-light); padding-top:0.85rem; font-size:0.74rem; font-family:var(--font-mono); font-weight:800; color:var(--text-pro); text-transform:uppercase;">Quick-Add Exercise Routine</div>
+                <div class="input-group" style="width:100%;">
+                    <label>Select Activity (Custom Menu)</label>
+                    <input type="hidden" id="ex-preset-type" value="walkpad|3.2|0.80">
+                    <div class="custom-dropdown-wrap" id="ex-routine-dropdown-wrap">
+                        <button type="button" class="custom-dropdown-btn" onclick="toggleExRoutineDropdown(event)">
+                            <span id="ex-routine-selected-text">Walking Pad / Desk Walk (2 kph, 3% Incline)</span>
+                            <span>▾</span>
+                        </button>
+                        <div class="custom-dropdown-menu" id="ex-routine-dropdown-menu"></div>
+                    </div>
+                </div>
+                <div class="input-group"><label>Duration (Minutes)</label><input type="number" id="ex-preset-mins" value="45" step="5"></div>
+                <button type="button" class="secondary-btn" style="border-color:var(--glow-fib); color:var(--text-fib);" onclick="logPresetExercise()">+ Log Routine &amp; Calculate Fat Burn</button>
+
+                <div style="border-top:1px solid var(--border-light); padding-top:0.85rem; font-size:0.74rem; font-family:var(--font-mono); font-weight:800; color:var(--text-pro); text-transform:uppercase;">Or Log Manual Calorie Burn</div>
+                <div class="macro-row">
+                    <div class="input-group"><label>Calories Burned (kcal)</label><input type="number" id="ex-manual-kcal" placeholder="e.g. 250"></div>
+                    <div class="input-group">
+                        <label>Intensity Zone</label>
+                        <input type="hidden" id="ex-manual-zone" value="Zone 1 Walking Pad|0.80">
+                        <div class="custom-dropdown-wrap" id="ex-zone-dropdown-wrap">
+                            <button type="button" class="custom-dropdown-btn" onclick="toggleExZoneDropdown(event)">
+                                <span id="ex-zone-selected-text">Zone 1: Light / Walk Pad</span>
+                                <span>▾</span>
+                            </button>
+                            <div class="custom-dropdown-menu" id="ex-zone-dropdown-menu"></div>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="secondary-btn" onclick="logManualExercise()">+ Log Manual Burn</button>
+                <div id="exercise-log-list" style="margin-top:0.5rem;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SETTINGS MODAL -->
+    <div class="modal-overlay" id="settings-modal">
+        <div class="modal-content" style="max-width: 480px;">
+            <div class="modal-header"><div class="modal-header-top"><h2>System Settings</h2><button class="close-modal" onclick="closeSettingsModal()">&times;</button></div></div>
+            <div class="modal-body custom-food-form">
+                <div class="input-group">
+                    <label>Measurement System</label>
+                    <select id="set-unit-system" onchange="saveSettings()">
+                        <option value="imperial">Imperial (lbs, ft/in, fl oz, g)</option>
+                        <option value="metric">Metric (kg, cm, ml, g)</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Dynamic Fiber Formula (per 1,000 kcal)</label>
+                    <select id="set-fiber-rate" onchange="saveSettings()">
+                        <option value="14">14g Fiber per 1,000 kcal (Gentle)</option>
+                        <option value="15" selected>15g Fiber per 1,000 kcal (Recommended)</option>
+                        <option value="16">16g Fiber per 1,000 kcal (High Density)</option>
+                    </select>
+                </div>
+                <div style="border-top:1px solid var(--border-light); padding-top:0.85rem; display:flex; gap:0.5rem;">
+                    <button class="secondary-btn" onclick="exportAllData()">Export Backup JSON</button>
+                    <button class="primary-btn" onclick="closeSettingsModal()">Done</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TODAY'S MEALS & HYDRATION MODAL -->
+    <div class="modal-overlay" id="journal-modal">
+        <div class="modal-content">
+            <div class="modal-header"><div class="modal-header-top"><h2>Today's Meals &amp; Hydration</h2><button class="close-modal" onclick="closeJournalModal()">&times;</button></div></div>
+            <div class="modal-body" id="journal-body"></div>
+        </div>
+    </div>
+
+    <!-- COOKBOOK MODAL -->
+    <div class="modal-overlay" id="cookbook-modal">
+        <div class="modal-content" style="max-width: 640px;">
+            <div class="modal-header"><div class="modal-header-top"><h2 id="cookbook-modal-title">The Cookbook</h2><button class="close-modal" onclick="closeCookbookModal()">&times;</button></div></div>
+            <div class="modal-body" id="cookbook-body"></div>
+        </div>
+    </div>
+
+    <!-- SAVE RECIPE MODAL -->
+    <div class="modal-overlay" id="recipe-creator-modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header"><div class="modal-header-top"><h2>Save Meal as Recipe</h2><button class="close-modal" onclick="closeRecipeCreator()">&times;</button></div></div>
+            <div class="modal-body custom-food-form">
+                <div class="input-group"><label>Recipe Name</label><input type="text" id="recipe-name" placeholder="e.g. Lean Beef & Avocado Bowl"></div>
+                <div class="input-group"><label>Preparation &amp; Cooking Notes</label><textarea id="recipe-prep" rows="4" placeholder="Cooking times, seasoning, and instructions..."></textarea></div>
+                <input type="hidden" id="recipe-slot-key">
+                <button class="primary-btn" onclick="commitRecipeExtraction()">Save to Cookbook</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PERSONAL FOOD CREATOR / EDITOR MODAL -->
+    <div class="modal-overlay" id="custom-food-modal">
+        <div class="modal-content" style="max-width: 560px;">
+            <div class="modal-header"><div class="modal-header-top"><h2 id="cf-modal-title">Add Food to Personal Pantry</h2><button class="close-modal" onclick="closeCustomFoodModal()">&times;</button></div></div>
+            <div class="modal-body custom-food-form">
+                <input type="hidden" id="cf-edit-id" value="">
+                <div class="input-group"><label>Food Name (Include Fresh, Frozen, Canned, Dry)</label><input type="text" id="cf-name" placeholder="e.g. Ground Beef 93/7 (Fresh)"></div>
+                <div class="input-group">
+                    <label>Pick an Icon (Or paste Emoji / Image URL below)</label>
+                    <div class="emoji-picker-grid" id="emoji-picker-grid"></div>
+                    <input type="text" id="cf-emoji" value="🥩" style="margin-top:0.35rem;">
+                </div>
+                <div class="macro-row">
+                    <div class="input-group">
+                        <label>Pantry Category</label>
+                        <select id="cf-category">
+                            <option value="Seafood & Shellfish">Seafood &amp; Shellfish</option>
+                            <option value="Poultry, Meat & Dairy">Poultry, Meat &amp; Dairy</option>
+                            <option value="Veggies">Veggies</option>
+                            <option value="Fruits & Berries">Fruits &amp; Berries</option>
+                            <option value="Cooking Fats & Oils">Cooking Fats &amp; Oils</option>
+                            <option value="Nuts & Seeds">Nuts &amp; Seeds</option>
+                            <option value="Canned Foods">Canned Foods</option>
+                            <option value="Dried Goods">Dried Goods</option>
+                            <option value="Fridge">Fridge</option>
+                            <option value="Flour & Fiber">Flour &amp; Fiber</option>
+                            <option value="Sauces, Condiments & Flavor">Sauces, Condiments &amp; Flavor</option>
+                        </select>
+                    </div>
+                    <div class="input-group"><label>Default Serving (g)</label><input type="number" id="cf-weight" value="100"></div>
+                </div>
+                <div style="font-size:0.72rem; font-family:var(--font-mono); font-weight:800; color:var(--text-pro); text-transform:uppercase;">Nutrition Facts (Per 100g)</div>
+                <div class="macro-row">
+                    <div class="input-group"><label>Calories (per 100g)</label><input type="number" id="cf-cals" value="0" step="0.1"></div>
+                    <div class="input-group"><label>Health Score (1-10 or Auto)</label><input type="number" id="cf-score" placeholder="Auto" min="1" max="10"></div>
+                </div>
+                <div class="macro-row">
+                    <div class="input-group"><label style="color:var(--text-carb);">Net Carbs (g)</label><input type="number" id="cf-carbs" value="0" step="0.1"></div>
+                    <div class="input-group"><label style="color:var(--text-fib);">Dietary Fiber (g)</label><input type="number" id="cf-fiber" value="0" step="0.1"></div>
+                </div>
+                <div class="macro-row">
+                    <div class="input-group"><label style="color:var(--text-pro);">Protein (g)</label><input type="number" id="cf-pro" value="0" step="0.1"></div>
+                    <div class="input-group"><label style="color:var(--text-fat);">Total Fat (g)</label><input type="number" id="cf-fat" value="0" step="0.1"></div>
+                </div>
+                <div class="macro-row">
+                    <div class="input-group"><label>Saturated Fat (g)</label><input type="number" id="cf-satfat" value="0" step="0.1"></div>
+                    <div class="input-group"><label>Total Sugars (g)</label><input type="number" id="cf-sugar" value="0" step="0.1"></div>
+                </div>
+                <div class="macro-row">
+                    <div class="input-group"><label>Sodium (mg)</label><input type="number" id="cf-sodium" value="0" step="1"></div>
+                    <div class="input-group"><label>Cholesterol (mg)</label><input type="number" id="cf-chol" value="0" step="1"></div>
+                </div>
+                <div class="input-group"><label>Vitamins, Minerals &amp; Notes (e.g. Iron: 15%, Vit C: 40%)</label><input type="text" id="cf-micros" placeholder="Rich in B12, Zinc, Iron..."></div>
+                <button class="primary-btn" style="margin-top:0.5rem;" onclick="runDiagnosticsAndSave()">Save to Personal Pantry</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODULAR APPLICATION SCRIPTS -->
+    <script src="pantry-data.js"></script>
+    <script src="app-core.js"></script>
+    <script src="app-features.js"></script>
+</body>
+</html>
