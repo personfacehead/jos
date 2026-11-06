@@ -877,6 +877,7 @@ h2 { font-family: var(--header-font); font-size: 1.4rem; font-weight: 700; margi
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--modal-overlay); z-index: 1000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(10px); padding: 0.6rem; }
 #fda-modal, #health-report-modal, #macro-detail-modal, #weight-graph-modal { z-index: 2500 !important; }
 #custom-food-modal { z-index: 2600 !important; }
+#recipe-picker-modal { z-index: 2650 !important; }
 .modal-content { background: var(--bg-color); color: var(--panel-text-main); width: 100%; max-width: 920px; max-height: 92vh; border-radius: 22px; display: flex; flex-direction: column; box-shadow: 0 25px 80px rgba(0,0,0,0.5); border: 2px solid var(--border-light); overflow: hidden; }
 .modal-header { padding: 0.85rem 1.1rem; border-bottom: 1.5px solid var(--border-light); display: flex; flex-direction: column; gap: 0.6rem; background: var(--panel-bg); }
 .modal-header-top { display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 0.45rem; flex-wrap: wrap; }
@@ -935,14 +936,149 @@ h2 { font-family: var(--header-font); font-size: 1.4rem; font-weight: 700; margi
 .food-list-right { display: flex; align-items: center; gap: 0.45rem; flex-shrink: 0; }
 .food-list-info-btn { width: 34px; height: 34px; padding: 0; border-radius: 50%; border: 1.5px solid rgba(0,0,0,0.35); background: var(--text-pro); color: #ffffff; font-size: 1.05rem; font-weight: 900; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
 
-/* COOKBOOK & FDA NUTRITION LABEL */
+/* COOKBOOK, INTERACTIVE INGREDIENT EDITOR, BATCH SCALER & FDA LABEL */
 .cookbook-recipe-btn { width: 100%; text-align: left; background: var(--input-bg); border: 1.5px solid var(--border-light); border-top: var(--accent-top) solid var(--text-fib); border-left: var(--accent-left) solid var(--text-fib); border-radius: 16px; padding: 1.15rem 1.25rem; margin-bottom: 0.95rem; display: flex; flex-direction: column; gap: 0.5rem; }
 .cookbook-recipe-top { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; width: 100%; }
 .cookbook-recipe-title { font-family: var(--header-font); font-size: 1.32rem; font-weight: 700; color: var(--panel-text-main); }
 .cookbook-recipe-comma-list { font-size: 0.94rem; font-weight: 600; color: var(--panel-text-muted); line-height: 1.48; }
 .recipe-detail-box { text-align: left; display: flex; flex-direction: column; gap: 1.1rem; }
-.recipe-bullet-list { list-style: none; padding: 1rem 1.15rem; background: var(--input-bg); border: 1.5px solid var(--border-light); border-radius: 14px; display: flex; flex-direction: column; gap: 0.6rem; }
-.recipe-bullet-list li { font-size: 0.96rem; font-weight: 700; color: var(--panel-text-main); }
+
+.recipe-title-edit-input {
+    width: 100%;
+    padding: 0.65rem 0.9rem;
+    border: 1.5px solid var(--border-light);
+    border-radius: 12px;
+    background: var(--input-bg);
+    color: var(--panel-text-main);
+    font-family: var(--header-font);
+    font-size: 1.35rem;
+    font-weight: 700;
+    text-align: left;
+}
+.recipe-title-edit-input:focus { border-color: var(--text-pro); outline: none; }
+
+.batch-scaler-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 0.7rem 0.9rem;
+    background: var(--card-sub-bg);
+    border: 1.5px solid var(--border-light);
+    border-radius: 12px;
+}
+.batch-pill-group { display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap; }
+.batch-pill {
+    padding: 0.36rem 0.72rem;
+    border-radius: 50px;
+    border: 1.5px solid var(--border-light);
+    background: var(--input-bg);
+    color: var(--panel-text-main);
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    font-weight: 900;
+}
+.batch-pill.active {
+    background: var(--text-fib);
+    color: #ffffff;
+    border-color: var(--glow-fib);
+}
+
+.recipe-ing-edit-list {
+    list-style: none;
+    padding: 0.65rem;
+    background: var(--input-bg);
+    border: 1.5px solid var(--border-light);
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+.recipe-ing-edit-item {
+    padding: 0.65rem 0.75rem;
+    background: var(--card-sub-bg);
+    border: 1px solid var(--border-light);
+    border-radius: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+.recipe-ing-name-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--panel-text-main);
+    flex: 1;
+    min-width: 170px;
+}
+.recipe-ing-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+.recipe-gram-input {
+    width: 68px;
+    padding: 0.34rem 0.38rem;
+    border-radius: 8px;
+    border: 1.5px solid var(--text-pro);
+    background: var(--input-bg);
+    color: var(--text-pro);
+    font-family: var(--font-mono);
+    font-size: 0.92rem;
+    font-weight: 900;
+    text-align: center;
+}
+.recipe-oz-readout {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: var(--panel-text-muted);
+    min-width: 54px;
+}
+
+.recipe-export-btn-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.65rem;
+    width: 100%;
+}
+.export-pdf-btn {
+    padding: 0.88rem 0.85rem;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+    color: #ffffff;
+    border: 2px solid var(--glow-pro);
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+}
+.export-print-btn {
+    padding: 0.88rem 0.85rem;
+    border-radius: 14px;
+    background: var(--input-bg);
+    color: var(--panel-text-main);
+    border: 2px solid var(--border-light);
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+}
+
 .fmt-toolbar { display: flex; gap: 0.35rem; flex-wrap: wrap; padding: 0.45rem; background: var(--card-sub-bg); border: 1.5px solid var(--border-light); border-bottom: none; border-radius: 12px 12px 0 0; }
 .fmt-btn { padding: 0.32rem 0.65rem; border-radius: 6px; border: 1px solid var(--border-light); background: var(--input-bg); font-family: var(--font-mono); font-size: 0.72rem; font-weight: 800; color: var(--panel-text-main); }
 .recipe-instructions-editor { width: 100%; min-height: 140px; padding: 0.9rem 1rem; border: 1.5px solid var(--border-light); border-radius: 0 0 12px 12px; background: var(--input-bg); color: var(--panel-text-main); font-size: 0.94rem; font-weight: 600; line-height: 1.55; text-align: left; }
@@ -990,3 +1126,33 @@ h2 { font-family: var(--header-font); font-size: 1.4rem; font-weight: 700; margi
 .action-toast-overlay.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .action-toast-card { background: #0f172a; color: #ffffff; border: 2px solid var(--glow-pro); border-radius: 50px; padding: 0.68rem 1.35rem; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45); display: flex; align-items: center; gap: 0.65rem; font-family: var(--font-mono); font-size: 0.82rem; font-weight: 900; white-space: nowrap; }
 .health-report-card { background: var(--input-bg); border: 1.5px solid var(--border-light); border-left: 4px solid var(--text-pro); border-radius: 12px; padding: 0.85rem 1rem; text-align: left; margin-bottom: 0.65rem; }
+
+/* PDF & PRINT RECIPE SHEET ARCHITECTURE */
+.recipe-export-container {
+    display: none;
+    background: #ffffff;
+    color: #000000;
+}
+.pdf-recipe-sheet {
+    width: 100%;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 24px 28px;
+    background: #ffffff;
+    color: #0f172a;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    line-height: 1.5;
+    text-align: left;
+}
+@media print {
+    body * { visibility: hidden !important; }
+    #recipe-export-container, #recipe-export-container * { visibility: visible !important; }
+    #recipe-export-container {
+        display: block !important;
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        background: #ffffff !important;
+    }
+}

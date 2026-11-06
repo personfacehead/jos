@@ -9,6 +9,9 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js"></script>
 
+    <!-- DIRECT PDF GENERATOR ENGINE (HTML2PDF.JS) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
     <!-- MAIN STYLESHEET -->
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -338,7 +341,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <div class="modal-header-top">
-                    <h2>The Pantry</h2>
+                    <h2 id="pantry-modal-title">The Pantry</h2>
                     <div style="display:flex; gap:0.45rem; align-items:center; flex-wrap:wrap;">
                         <div class="view-mode-switch">
                             <button type="button" class="view-mode-btn active" id="pantry-mode-list" onclick="setPantryViewMode('list')">☰ List View</button>
@@ -360,13 +363,26 @@
                 <input type="text" id="pantry-search" class="pantry-search-input" placeholder="🔍 Search 400 foods (auto-expands matches)..." oninput="renderPantry()">
             </div>
             <div class="modal-body" id="pantry-body"></div>
-            <div class="modal-footer"><button class="primary-btn" onclick="sendToSandbox()">Add Selected to Staging</button></div>
+            <div class="modal-footer"><button class="primary-btn" id="pantry-submit-btn" onclick="sendToSandbox()">Add Selected to Staging</button></div>
         </div>
     </div>
 
     <!-- FDA NUTRITION LABEL MODAL -->
     <div class="modal-overlay" id="fda-modal">
         <div class="modal-content fda-modal-content" id="fda-modal-content"></div>
+    </div>
+
+    <!-- ADD TO RECIPE PICKER MODAL (LAUNCHED FROM FDA LABEL) -->
+    <div class="modal-overlay" id="recipe-picker-modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <div class="modal-header-top">
+                    <h2>🍳 Add Ingredient to Recipe</h2>
+                    <button class="close-modal" onclick="closeRecipePickerModal()">&times;</button>
+                </div>
+            </div>
+            <div class="modal-body custom-food-form" id="recipe-picker-body"></div>
+        </div>
     </div>
 
     <!-- INTERACTIVE WEIGHT TREND GRAPH & WEIGH-IN HISTORY MODAL (OPTION B) -->
@@ -623,10 +639,18 @@
         </div>
     </div>
 
-    <!-- COOKBOOK MODAL -->
+    <!-- COOKBOOK MODAL W/ + NEW RECIPE BUTTON -->
     <div class="modal-overlay" id="cookbook-modal">
-        <div class="modal-content" style="max-width: 640px;">
-            <div class="modal-header"><div class="modal-header-top"><h2 id="cookbook-modal-title">The Cookbook</h2><button class="close-modal" onclick="closeCookbookModal()">&times;</button></div></div>
+        <div class="modal-content" style="max-width: 720px;">
+            <div class="modal-header">
+                <div class="modal-header-top">
+                    <h2 id="cookbook-modal-title">The Cookbook</h2>
+                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                        <button type="button" class="unit-btn" id="new-blank-recipe-btn" style="padding:0.42rem 0.78rem; border-color:var(--glow-fib); color:var(--text-fib); font-size:0.75rem;" onclick="createNewBlankRecipe()">+ New Recipe</button>
+                        <button class="close-modal" onclick="closeCookbookModal()">&times;</button>
+                    </div>
+                </div>
+            </div>
             <div class="modal-body" id="cookbook-body"></div>
         </div>
     </div>
@@ -701,6 +725,9 @@
             </div>
         </div>
     </div>
+
+    <!-- HIDDEN PRINT & PDF RENDER CONTAINER -->
+    <div id="recipe-export-container" class="recipe-export-container"></div>
 
     <!-- MODULAR APPLICATION SCRIPTS -->
     <script src="pantry-data.js"></script>

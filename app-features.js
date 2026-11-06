@@ -1,6 +1,8 @@
 // ============================================================================
-// JOURNEY OF SELF — SANCTUARY, VOICE STUDIO, PANTRY, COOKBOOK & MODALS
+// JOURNEY OF SELF — SANCTUARY, VOICE STUDIO, PANTRY, COOKBOOK & PDF EXPORT
 // ============================================================================
+
+let pantryRecipeTargetId = null;
 
 // DAILY RHYTHM & INNER SANCTUARY (WITH SUBMIT & LOCK + UNDO/UNLOCK)
 function openSanctuaryModal() {
@@ -821,7 +823,7 @@ function renderJournal() {
                     <div class="meal-ing-top">
                         <span style="font-weight:800; font-size:0.95rem; color:var(--panel-text-main);">${emj} ${f.name}</span>
                         <div style="display:flex; align-items:center; gap:0.35rem;">
-                            <input type="number" value="${it.weight}" min="1" style="width:64px; padding:0.28rem; text-align:center; border-radius:6px; border:1px solid var(--border-light); background:var(--input-bg); color:var(--text-pro); font-weight:800; font-family:var(--font-mono);" onchange="updateLoggedItemWeight('${slotName}', ${idx}, this.value)">
+                            <input type="number" value="${it.weight}" min="1" step="any" style="width:64px; padding:0.28rem; text-align:center; border-radius:6px; border:1px solid var(--border-light); background:var(--input-bg); color:var(--text-pro); font-weight:800; font-family:var(--font-mono);" onchange="updateLoggedItemWeight('${slotName}', ${idx}, this.value)">
                             <span style="font-size:0.75rem; font-family:var(--font-mono); font-weight:700;">g</span>
                             <button class="unit-btn" onclick="openFDAModal('${f.id}', ${it.weight}, 'g')">ⓘ</button>
                             <button class="delete-ing-pill" onclick="removeLoggedItem('${slotName}', ${idx})">🗑️ Delete</button>
@@ -885,30 +887,144 @@ function saveSlotAsRecipe(slotName) {
 }
 function closeRecipeCreator() { document.getElementById('recipe-creator-modal').style.display = 'none'; }
 
+function sortRecipeItemsByCulinaryOrder(recipe) {
+    if (!recipe || !Array.isArray(recipe.items)) return;
+    recipe.items.sort((a, b) => getCulinarySortRank(a.id) - getCulinarySortRank(b.id));
+}
+
 function commitRecipeExtraction() {
     const slotName = document.getElementById('recipe-slot-key').value;
-    const name = document.getElementById('recipe-name').value || `${slotName} Recipe`;
+    const name = document.getElementById('recipe-name').value.trim() || `${slotName} Recipe`;
     const prep = document.getElementById('recipe-prep').value || "";
     const items = dailyMeals[slotName] || [];
     if (items.length === 0) return;
     const newId = 'recipe_' + Date.now();
-    savedRecipes[newId] = { name, prep, portions: 1, items: items.map(i => ({ ...i })) };
+    savedRecipes[newId] = { name, prep, portions: 1, batchMult: 1, items: items.map(i => ({ ...i })) };
+    sortRecipeItemsByCulinaryOrder(savedRecipes[newId]);
     saveToMemory();
     closeRecipeCreator();
     openCookbookModal();
+    openRecipeDetail(newId);
     triggerActionCue(`Saved "${name}" to Cookbook!`, "🍳");
 }
 
-// COOKBOOK & RECIPE DETAIL VIEW
+// ============================================================================
+// COOKBOOK, EDITABLE INGREDIENTS, PANTRY-TO-RECIPE & DIRECT PDF / PRINT EXPORT
+// ============================================================================
+
 function openCookbookModal() {
     hapticTap(10);
     activeCookbookRecipeId = null;
     renderCookbook();
     document.getElementById('cookbook-modal').style.display = 'flex';
 }
-function closeCookbookModal() { document.getElementById('cookbook-modal').style.display = 'none'; }
-function openRecipeDetail(id) { hapticTap(8); activeCookbookRecipeId = id; renderCookbook(); }
-function backToCookbookList() { hapticTap(8); activeCookbookRecipeId = null; renderCookbook(); }
+
+function closeCookbookModal() {
+    document.getElementById('cookbook-modal').style.display = 'none';
+}
+
+function openRecipeDetail(id) {
+    hapticTap(8);
+    activeCookbookRecipeId = id;
+    renderCookbook();
+}
+
+function backToCookbookList() {
+    hapticTap(8);
+    activeCookbookRecipeId = null;
+    renderCookbook();
+}
+
+function createNewBlankRecipe() {
+    hapticTap(10);
+    const defaultName = "New Custom Recipe";
+    const entered = prompt("Enter a name for your new recipe:", defaultName);
+    if (entered === null) return;
+    const finalName = entered.trim() || defaultName;
+    const newId = 'recipe_' + Date.now();
+    savedRecipes[newId] = {
+        name: finalName,
+        prep: "",
+        portions: 1,
+        batchMult: 1,
+        items: []
+    };
+    saveToMemory();
+    document.getElementById('cookbook-modal').style.display = 'flex';
+    openRecipeDetail(newId);
+    triggerActionCue(`Created "${finalName}" — Add Ingredients Below!`, "🍳");
+}
+
+function updateRecipeTitle(recipeId, newTitle) {
+    const recipe = savedRecipes[recipeId];
+    if (!recipe) return;
+    const cleaned = (newTitle || '').trim();
+    if (!cleaned) return;
+    recipe.name = cleaned;
+    const titleEl = document.getElementById('cookbook-modal-title');
+    if (titleEl && activeCookbookRecipeId === recipeId) titleEl.textContent = cleaned;
+    saveToMemory();
+    triggerActionCue(`Renamed to "${cleaned}"`, "✎");
+}
+
+function setRecipeBatchMultiplier(recipeId, mult) {
+    hapticTap(8);
+    const recipe = savedRecipes[recipeId];
+    if (!recipe) return;
+    recipe.batchMult = mult;
+    saveToMemory();
+    renderCookbook();
+}
+
+function updateRecipePortionsInline(recipeId, val) {
+    const recipe = savedRecipes[recipeId];
+    if (!recipe) return;
+    recipe.portions = Math.max(1, parseFloat(val) || 1);
+    saveToMemory();
+    renderCookbook();
+}
+
+function stepRecipeIngWeight(recipeId, idx, delta) {
+    hapticTap(6);
+    const recipe = savedRecipes[recipeId];
+    if (!recipe || !recipe.items[idx]) return;
+    const currentW = parseFloat(recipe.items[idx].weight) || 0;
+    recipe.items[idx].weight = Math.max(1, Math.round((currentW + delta) * 10) / 10);
+    saveToMemory();
+    renderCookbook();
+}
+
+function updateRecipeIngWeight(recipeId, idx, newVal) {
+    const recipe = savedRecipes[recipeId];
+    if (!recipe || !recipe.items[idx]) return;
+    const parsed = parseFloat(newVal);
+    if (isNaN(parsed) || parsed <= 0) {
+        removeRecipeIngredient(recipeId, idx);
+        return;
+    }
+    recipe.items[idx].weight = Math.round(parsed * 10) / 10;
+    saveToMemory();
+    renderCookbook();
+}
+
+function removeRecipeIngredient(recipeId, idx) {
+    hapticTap(10);
+    const recipe = savedRecipes[recipeId];
+    if (!recipe || !recipe.items[idx]) return;
+    const removedFood = foodDatabase[recipe.items[idx].id];
+    recipe.items.splice(idx, 1);
+    saveToMemory();
+    renderCookbook();
+    if (removedFood) {
+        triggerActionCue(`Removed ${removedFood.name.split(' (')[0]} from Recipe`, "🗑️");
+    }
+}
+
+function openPantryForRecipe(recipeId) {
+    hapticTap(10);
+    closeCookbookModal();
+    openPantry('all', recipeId);
+}
 
 function deleteCookbookRecipe(id) {
     if (!confirm("Delete this recipe from your Cookbook?")) return;
@@ -951,31 +1067,107 @@ function saveRecipeInstructionsLive(val) {
 function renderCookbook() {
     const body = document.getElementById('cookbook-body');
     const titleEl = document.getElementById('cookbook-modal-title');
+    const newBtn = document.getElementById('new-blank-recipe-btn');
     body.innerHTML = '';
 
     if (activeCookbookRecipeId && savedRecipes[activeCookbookRecipeId]) {
         const recipe = savedRecipes[activeCookbookRecipeId];
-        if (titleEl) titleEl.textContent = recipe.name;
+        if (!recipe.portions || recipe.portions < 1) recipe.portions = 1;
+        if (!recipe.batchMult) recipe.batchMult = 1;
+        sortRecipeItemsByCulinaryOrder(recipe);
 
+        if (titleEl) titleEl.textContent = recipe.name;
+        if (newBtn) newBtn.style.display = 'none';
+
+        let totCals = 0, totPro = 0, totNetCarb = 0, totFib = 0, totFat = 0, totWeighted = 0;
         let itemsHtml = '';
-        recipe.items.forEach(it => {
-            const f = foodDatabase[it.id];
-            if (!f) return;
-            const emj = f.emoji.startsWith('http') ? '📸' : f.emoji;
-            const oz = (it.weight / 28.35).toFixed(1);
-            itemsHtml += `<li>${emj} <strong>${f.name}</strong> — ${it.weight}g (${oz} oz)</li>`;
-        });
+
+        if (recipe.items.length === 0) {
+            itemsHtml = `<li class="empty-state" style="margin:0.8rem 0;">No ingredients in this recipe yet.<br>Tap "+ Add Ingredients from Pantry" below to build your recipe.</li>`;
+        } else {
+            recipe.items.forEach((it, idx) => {
+                const f = foodDatabase[it.id];
+                if (!f) return;
+                const r = it.weight / 100;
+                const itemCals = f.calories * r;
+                totCals += itemCals;
+                totPro += f.protein * r;
+                totNetCarb += f.netCarbs * r;
+                totFib += f.fiber * r;
+                totFat += f.fat * r;
+                totWeighted += f.healthScore * itemCals;
+
+                const emj = f.emoji.startsWith('http') ? '📸' : f.emoji;
+                const scaledGrams = Math.round(it.weight * recipe.batchMult * 10) / 10;
+                const oz = (scaledGrams / 28.35).toFixed(2);
+                const batchNote = recipe.batchMult > 1 ? ` <span style="color:var(--text-fib);">(${scaledGrams}g at ${recipe.batchMult}x)</span>` : '';
+
+                itemsHtml += `
+                    <li class="recipe-ing-edit-item">
+                        <div class="recipe-ing-name-wrap">
+                            <span>${emj}</span>
+                            <div>
+                                <div>${f.name}${batchNote}</div>
+                                <div style="font-family:var(--font-mono); font-size:0.7rem; font-weight:700; color:var(--panel-text-muted);">
+                                    ${Math.round(itemCals)} kcal • ${(f.protein * r).toFixed(1)}g P • ${(f.netCarbs * r).toFixed(1)}g NC • ${(f.fiber * r).toFixed(1)}g Fib • ${(f.fat * r).toFixed(1)}g Fat
+                                </div>
+                            </div>
+                        </div>
+                        <div class="recipe-ing-controls">
+                            <button type="button" class="step-wt-btn" onclick="stepRecipeIngWeight('${activeCookbookRecipeId}', ${idx}, -10)">−10g</button>
+                            <input type="number" class="recipe-gram-input" value="${it.weight}" min="1" step="any" title="Click to type exact grams (e.g. 17)" onchange="updateRecipeIngWeight('${activeCookbookRecipeId}', ${idx}, this.value)">
+                            <span style="font-size:0.78rem; font-family:var(--font-mono); font-weight:900;">g</span>
+                            <button type="button" class="step-wt-btn" onclick="stepRecipeIngWeight('${activeCookbookRecipeId}', ${idx}, 10)">+10g</button>
+                            <span class="recipe-oz-readout">(${oz} oz)</span>
+                            <button type="button" class="unit-btn" title="View Ingredient Nutrition Label" onclick="openFDAModal('${f.id}', ${it.weight}, 'g')">ⓘ</button>
+                            <button type="button" class="delete-ing-pill" onclick="removeRecipeIngredient('${activeCookbookRecipeId}', ${idx})">🗑️ Delete</button>
+                        </div>
+                    </li>
+                `;
+            });
+        }
+
+        const portions = Math.max(1, parseFloat(recipe.portions) || 1);
+        const calsPerPortion = Math.round(totCals / portions);
+        const avgScore = totCals > 0 ? Math.round((totWeighted / totCals) * 10) : 100;
+        const safeTitleVal = (recipe.name || '').replace(/"/g, '&quot;');
 
         body.innerHTML = `
             <div class="recipe-detail-box">
-                <div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem; flex-wrap:wrap;">
                     <button type="button" class="unit-btn" style="padding:0.45rem 0.85rem; font-size:0.76rem;" onclick="backToCookbookList()">← Back to All Recipes</button>
-                    <button type="button" class="delete-ing-pill" onclick="deleteCookbookRecipe('${activeCookbookRecipeId}')">🗑️ Delete Recipe</button>
+                    <div style="display:flex; gap:0.45rem; align-items:center;">
+                        <span class="food-score ${getScoreClass(avgScore / 10)}">${calsPerPortion} kcal/portion • Quality ${avgScore}%</span>
+                        <button type="button" class="delete-ing-pill" onclick="deleteCookbookRecipe('${activeCookbookRecipeId}')">🗑️ Delete Recipe</button>
+                    </div>
                 </div>
+
                 <div>
-                    <div style="font-size:0.74rem; font-family:var(--font-mono); font-weight:800; color:var(--text-pro); text-transform:uppercase; letter-spacing:1.2px; margin-bottom:0.45rem;">Recipe Ingredients</div>
-                    <ul class="recipe-bullet-list">${itemsHtml}</ul>
+                    <div style="font-size:0.72rem; font-family:var(--font-mono); font-weight:800; color:var(--panel-text-muted); text-transform:uppercase; letter-spacing:1.2px; margin-bottom:0.35rem;">Recipe Name (Click to Rename)</div>
+                    <input type="text" class="recipe-title-edit-input" value="${safeTitleVal}" onchange="updateRecipeTitle('${activeCookbookRecipeId}', this.value)">
                 </div>
+
+                <div class="batch-scaler-bar">
+                    <div style="display:flex; align-items:center; gap:0.45rem;">
+                        <span style="font-family:var(--font-mono); font-size:0.74rem; font-weight:900; text-transform:uppercase;">🍽️ Recipe Yield (Portions):</span>
+                        <input type="number" class="recipe-gram-input" style="width:58px;" value="${portions}" min="1" step="1" onchange="updateRecipePortionsInline('${activeCookbookRecipeId}', this.value)">
+                    </div>
+                    <div class="batch-pill-group">
+                        <span style="font-family:var(--font-mono); font-size:0.72rem; font-weight:800; color:var(--panel-text-muted);">Batch Scale (PDF/Prep):</span>
+                        <button type="button" class="batch-pill ${recipe.batchMult === 1 ? 'active' : ''}" onclick="setRecipeBatchMultiplier('${activeCookbookRecipeId}', 1)">1x</button>
+                        <button type="button" class="batch-pill ${recipe.batchMult === 2 ? 'active' : ''}" onclick="setRecipeBatchMultiplier('${activeCookbookRecipeId}', 2)">2x</button>
+                        <button type="button" class="batch-pill ${recipe.batchMult === 4 ? 'active' : ''}" onclick="setRecipeBatchMultiplier('${activeCookbookRecipeId}', 4)">4x</button>
+                    </div>
+                </div>
+
+                <div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.4rem; margin-bottom:0.45rem;">
+                        <span style="font-size:0.74rem; font-family:var(--font-mono); font-weight:800; color:var(--text-pro); text-transform:uppercase; letter-spacing:1.2px;">Editable Ingredients (Culinary Prep Order)</span>
+                        <button type="button" class="unit-btn" style="border-color:var(--glow-fib); color:var(--text-fib); padding:0.38rem 0.75rem; font-size:0.74rem;" onclick="openPantryForRecipe('${activeCookbookRecipeId}')">+ Add Ingredients from Pantry</button>
+                    </div>
+                    <ul class="recipe-ing-edit-list">${itemsHtml}</ul>
+                </div>
+
                 <div>
                     <div style="font-size:0.74rem; font-family:var(--font-mono); font-weight:800; color:var(--text-pro); text-transform:uppercase; letter-spacing:1.2px; margin-bottom:0.45rem;">Preparation &amp; Cooking Instructions</div>
                     <div class="fmt-toolbar">
@@ -987,11 +1179,22 @@ function renderCookbook() {
                     </div>
                     <textarea id="recipe-detail-prep-editor" class="recipe-instructions-editor" placeholder="Type cooking steps, temperatures, and seasoning notes here (auto-saves)..." oninput="saveRecipeInstructionsLive(this.value)">${recipe.prep || ''}</textarea>
                 </div>
+
                 <button type="button" class="nutrition-facts-hero-btn" onclick="openRecipeFDAModal('${activeCookbookRecipeId}')">
-                    <span>📊</span> Nutrition Facts (Single Portion Label)
+                    <span>📊</span> View Interactive Nutrition Facts Label (1 Portion)
                 </button>
+
+                <div class="recipe-export-btn-row">
+                    <button type="button" class="export-pdf-btn" onclick="downloadRecipePDF('${activeCookbookRecipeId}')">
+                        <span>📥</span> Download Recipe PDF
+                    </button>
+                    <button type="button" class="export-print-btn" onclick="printRecipeSheet('${activeCookbookRecipeId}')">
+                        <span>🖨️</span> Print Recipe Sheet
+                    </button>
+                </div>
+
                 <button type="button" class="primary-btn" onclick="loadRecipe('${activeCookbookRecipeId}')">
-                    🍳 Stage Recipe to ${currentMealSlot}
+                    🍳 Stage 1 Portion to ${currentMealSlot}
                 </button>
             </div>
         `;
@@ -999,13 +1202,16 @@ function renderCookbook() {
     }
 
     if (titleEl) titleEl.textContent = "The Cookbook";
+    if (newBtn) newBtn.style.display = 'inline-block';
+
     const recipeEntries = Object.entries(savedRecipes);
     if (recipeEntries.length === 0) {
-        body.innerHTML = '<p class="empty-state">Your cookbook is empty.<br>Log a meal and tap "+ Save Recipe" inside Today\'s Meals.</p>';
+        body.innerHTML = '<p class="empty-state">Your cookbook is empty.<br>Tap "+ New Recipe" above to build one from scratch, or tap "+ Save Recipe" inside Today\'s Meals.</p>';
         return;
     }
 
     recipeEntries.forEach(([id, recipe]) => {
+        sortRecipeItemsByCulinaryOrder(recipe);
         let totalCals = 0, weightedScore = 0;
         const ingNames = [];
         recipe.items.forEach(it => {
@@ -1016,10 +1222,10 @@ function renderCookbook() {
             totalCals += c;
             weightedScore += f.healthScore * c;
         });
-        const commaList = ingNames.join(', ');
-        const portions = Math.max(1, parseInt(recipe.portions) || 1);
+        const commaList = ingNames.length > 0 ? ingNames.join(', ') : 'No ingredients added yet — tap to edit.';
+        const portions = Math.max(1, parseFloat(recipe.portions) || 1);
         const calsPerPortion = Math.round(totalCals / portions);
-        const avgScore = totalCals > 0 ? Math.round((weightedScore / totalCals) * 10) : 0;
+        const avgScore = totalCals > 0 ? Math.round((weightedScore / totalCals) * 10) : 100;
 
         const btn = document.createElement('button');
         btn.type = 'button';
@@ -1034,6 +1240,199 @@ function renderCookbook() {
         `;
         body.appendChild(btn);
     });
+}
+
+// ============================================================================
+// BUILD PRINTABLE / PDF RECIPE SHEET WITH EMBEDDED FDA NUTRITION FACTS LABEL
+// ============================================================================
+
+function formatPrepTextToHTML(rawPrep) {
+    if (!rawPrep || !rawPrep.trim()) {
+        return '<p style="color:#475569; font-style:italic;">No preparation instructions recorded.</p>';
+    }
+    const escaped = rawPrep
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>');
+    return escaped.split('\n').map(line => `<div style="margin-bottom:4px;">${line || '&nbsp;'}</div>`).join('');
+}
+
+function buildRecipeExportHTML(recipeId) {
+    const recipe = savedRecipes[recipeId];
+    if (!recipe) return '';
+    sortRecipeItemsByCulinaryOrder(recipe);
+
+    const portions = Math.max(1, parseFloat(recipe.portions) || 1);
+    const batchMult = Math.max(1, parseFloat(recipe.batchMult) || 1);
+    const totalPortionsScaled = portions * batchMult;
+
+    let totWeight = 0, totCals = 0, totFat = 0, totSatFat = 0, totChol = 0, totSod = 0;
+    let totNetCarb = 0, totFib = 0, totSug = 0, totPro = 0, totWeighted = 0;
+    const combinedMicros = {};
+
+    const ingredientRowsHtml = recipe.items.map(it => {
+        const f = foodDatabase[it.id];
+        if (!f) return '';
+        const r = it.weight / 100;
+        const cals = f.calories * r;
+        totWeight += it.weight; totCals += cals;
+        totFat += f.fat * r; totSatFat += (f.satFat || 0) * r;
+        totChol += (f.chol || 0) * r; totSod += (f.sodium || 0) * r;
+        totNetCarb += f.netCarbs * r; totFib += f.fiber * r;
+        totSug += (f.sugar || 0) * r; totPro += f.protein * r;
+        totWeighted += f.healthScore * cals;
+
+        if (f.micros) {
+            Object.entries(f.micros).forEach(([k, v]) => {
+                if (!combinedMicros[k]) combinedMicros[k] = `${v} (${f.name.split(' (')[0]})`;
+            });
+        }
+
+        const scaledGrams = Math.round(it.weight * batchMult * 10) / 10;
+        const scaledOz = (scaledGrams / 28.35).toFixed(2);
+        const scaledCals = Math.round(cals * batchMult);
+        const emj = f.emoji.startsWith('http') ? '•' : f.emoji;
+
+        return `
+            <li style="padding:6px 0; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; font-size:13.5px; color:#0f172a;">
+                <span><strong>${emj} ${f.name}</strong></span>
+                <span style="font-family:monospace; font-weight:700;">${scaledGrams}g (${scaledOz} oz) • ${scaledCals} kcal</span>
+            </li>
+        `;
+    }).join('');
+
+    const pWeight = Math.round(totWeight / portions);
+    const cals = Math.round(totCals / portions);
+    const fat = (totFat / portions).toFixed(1);
+    const satFat = (totSatFat / portions).toFixed(1);
+    const unSatFat = Math.max(0, (totFat - totSatFat) / portions).toFixed(1);
+    const chol = Math.round(totChol / portions);
+    const sod = Math.round(totSod / portions);
+    const totalCarb = ((totNetCarb + totFib) / portions).toFixed(1);
+    const fiber = (totFib / portions).toFixed(1);
+    const netCarb = (totNetCarb / portions).toFixed(1);
+    const sugar = (totSug / portions).toFixed(1);
+    const pro = (totPro / portions).toFixed(1);
+    const avgScore = totCals > 0 ? Math.round((totWeighted / totCals) * 10) : 100;
+
+    const fatDV = Math.round(((totFat / portions) / 78) * 100);
+    const satFatDV = Math.round(((totSatFat / portions) / 20) * 100);
+    const cholDV = Math.round(((totChol / portions) / 300) * 100);
+    const sodDV = Math.round(((totSod / portions) / 2300) * 100);
+    const carbDV = Math.round((((totNetCarb + totFib) / portions) / 275) * 100);
+    const fibDV = Math.round(((totFib / portions) / 28) * 100);
+    const proDV = Math.round(((totPro / portions) / 50) * 100);
+
+    const microRowsHtml = Object.keys(combinedMicros).slice(0, 6).map(k =>
+        `<div style="display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid #cbd5e1; font-size:12px; color:#000;"><span><strong>${k}</strong></span><span>${combinedMicros[k]}</span></div>`
+    ).join('');
+
+    return `
+        <div class="pdf-recipe-sheet">
+            <div style="border-bottom:3px solid #0f172a; padding-bottom:10px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:8px;">
+                <div>
+                    <div style="font-size:11px; font-family:monospace; font-weight:800; text-transform:uppercase; color:#0284c7; letter-spacing:1.5px;">Journey of Self • Culinary Prep &amp; Nutrition Sheet</div>
+                    <h1 style="font-size:24px; font-weight:800; color:#0f172a; margin:2px 0 0 0;">${recipe.name}</h1>
+                </div>
+                <div style="text-align:right; font-family:monospace; font-size:12px; font-weight:800; color:#0f172a;">
+                    <div>Quality Score: ${avgScore}%</div>
+                    <div>Batch Yield: ${totalPortionsScaled} Portion${totalPortionsScaled > 1 ? 's' : ''} (${batchMult}x Scale)</div>
+                </div>
+            </div>
+
+            <div style="margin-bottom:16px;">
+                <h3 style="font-size:13px; font-family:monospace; font-weight:900; text-transform:uppercase; letter-spacing:1px; color:#0284c7; margin-bottom:6px;">
+                    Ingredients (${batchMult}x Batch — Makes ${totalPortionsScaled} Portion${totalPortionsScaled > 1 ? 's' : ''})
+                </h3>
+                <ul style="list-style:none; padding:0; margin:0; border-top:1px solid #e2e8f0;">
+                    ${ingredientRowsHtml || '<li style="padding:8px 0; color:#64748b;">No ingredients listed.</li>'}
+                </ul>
+            </div>
+
+            <div style="margin-bottom:20px;">
+                <h3 style="font-size:13px; font-family:monospace; font-weight:900; text-transform:uppercase; letter-spacing:1px; color:#0284c7; margin-bottom:6px;">
+                    Preparation &amp; Cooking Instructions
+                </h3>
+                <div style="padding:12px 14px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; font-size:13.5px; color:#0f172a; line-height:1.55;">
+                    ${formatPrepTextToHTML(recipe.prep)}
+                </div>
+            </div>
+
+            <div style="border:3px solid #000000; padding:12px 14px; background:#ffffff; color:#000000; max-width:400px; margin:0 auto;">
+                <div style="font-size:24px; font-weight:900; text-transform:uppercase; border-bottom:7px solid #000; padding-bottom:4px; line-height:1;">Nutrition Facts</div>
+                <div style="font-size:12.5px; font-weight:800; padding:4px 0; border-bottom:1px solid #000;">
+                    Serving Size: 1 Single Portion (${pWeight}g) • Servings Per Base Recipe: ${portions}
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:flex-end; border-bottom:4px solid #000; padding:4px 0;">
+                    <span style="font-size:14px; font-weight:900;">Calories (Per 1 Portion)</span>
+                    <span style="font-size:28px; font-weight:900; line-height:1;">${cals}</span>
+                </div>
+                <div style="text-align:right; font-size:10.5px; font-weight:900; border-bottom:1px solid #000; padding:2px 0;">% Daily Value*</div>
+                <div style="display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid #cbd5e1; font-size:12.5px; font-weight:800;"><span>Total Fat ${fat}g</span><span>${fatDV}%</span></div>
+                <div style="display:flex; justify-content:space-between; padding:3px 0 3px 14px; border-bottom:1px solid #cbd5e1; font-size:12px;"><span>Saturated Fat ${satFat}g</span><span>${satFatDV}%</span></div>
+                <div style="display:flex; justify-content:space-between; padding:3px 0 3px 14px; border-bottom:1px solid #cbd5e1; font-size:12px;"><span>Unsaturated Fat ${unSatFat}g</span><span></span></div>
+                <div style="display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid #cbd5e1; font-size:12.5px; font-weight:800;"><span>Cholesterol ${chol}mg</span><span>${cholDV}%</span></div>
+                <div style="display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid #cbd5e1; font-size:12.5px; font-weight:800;"><span>Sodium ${sod}mg</span><span>${sodDV}%</span></div>
+                <div style="display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid #cbd5e1; font-size:12.5px; font-weight:800;"><span>Total Carbohydrate ${totalCarb}g</span><span>${carbDV}%</span></div>
+                <div style="display:flex; justify-content:space-between; padding:3px 0 3px 14px; border-bottom:1px solid #cbd5e1; font-size:12px;"><span>Dietary Fiber ${fiber}g</span><span>${fibDV}%</span></div>
+                <div style="display:flex; justify-content:space-between; padding:3px 0 3px 14px; border-bottom:1px solid #cbd5e1; font-size:12px;"><span>Total Sugars ${sugar}g</span><span></span></div>
+                <div style="display:flex; justify-content:space-between; padding:3px 0 3px 14px; border-bottom:1px solid #cbd5e1; font-size:12.5px; font-weight:800; color:#e11d48;"><span>Net Carbs ${netCarb}g</span><span></span></div>
+                <div style="display:flex; justify-content:space-between; padding:3px 0; border-bottom:4px solid #000; font-size:12.5px; font-weight:800;"><span>Protein ${pro}g</span><span>${proDV}%</span></div>
+                ${microRowsHtml}
+            </div>
+        </div>
+    `;
+}
+
+function downloadRecipePDF(recipeId) {
+    hapticTap(12);
+    const recipe = savedRecipes[recipeId];
+    if (!recipe) return;
+
+    const container = document.getElementById('recipe-export-container');
+    if (!container) return;
+    container.innerHTML = buildRecipeExportHTML(recipeId);
+
+    const safeFileName = (recipe.name || 'recipe')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '') || 'recipe';
+
+    if (typeof window.html2pdf === 'undefined') {
+        printRecipeSheet(recipeId);
+        return;
+    }
+
+    container.style.display = 'block';
+    triggerActionCue(`Generating "${safeFileName}.pdf" for Downloads...`, "📥");
+
+    const opt = {
+        margin:       [0.35, 0.35, 0.35, 0.35],
+        filename:     `${safeFileName}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+
+    window.html2pdf().set(opt).from(container).save().then(() => {
+        container.style.display = 'none';
+        triggerActionCue(`Downloaded "${safeFileName}.pdf"!`, "✅");
+    }).catch(() => {
+        container.style.display = 'none';
+        printRecipeSheet(recipeId);
+    });
+}
+
+function printRecipeSheet(recipeId) {
+    hapticTap(10);
+    const recipe = savedRecipes[recipeId];
+    if (!recipe) return;
+    const container = document.getElementById('recipe-export-container');
+    if (!container) return;
+    container.innerHTML = buildRecipeExportHTML(recipeId);
+    window.print();
 }
 
 function openRecipeFDAModal(recipeId, newPortions = null) {
@@ -1125,9 +1524,10 @@ function openRecipeFDAModal(recipeId, newPortions = null) {
             <div class="fda-row bold thick-border"><span>Protein ${pro}g</span><span>${proDV}%</span></div>
             <div style="font-size:0.75rem; font-weight:900; text-transform:uppercase; padding:0.4rem 0 0.2rem 0; color:#000;">Key Micronutrients &amp; Highlights</div>
             ${microRows}
-            <div style="display:flex; gap:0.5rem; margin-top:1.1rem;">
-                <button type="button" onclick="closeFDAModal()" style="flex:1; padding:0.65rem; border-radius:8px; border:2px solid #000; background:#f1f5f9; color:#000; font-weight:800; font-size:0.78rem; text-transform:uppercase;">← Back to Recipe</button>
-                <button type="button" onclick="closeFDAModal(); loadRecipe('${recipeId}');" style="flex:1; padding:0.65rem; border-radius:8px; border:2px solid #000; background:#000; color:#fff; font-weight:800; font-size:0.78rem; text-transform:uppercase;">+ Stage 1 Portion</button>
+            <div style="display:flex; gap:0.5rem; margin-top:1.1rem; flex-wrap:wrap;">
+                <button type="button" onclick="closeFDAModal()" style="flex:1; padding:0.65rem; border-radius:8px; border:2px solid #000; background:#f1f5f9; color:#000; font-weight:800; font-size:0.76rem; text-transform:uppercase;">← Back</button>
+                <button type="button" onclick="closeFDAModal(); downloadRecipePDF('${recipeId}');" style="flex:1; padding:0.65rem; border-radius:8px; border:2px solid #0284c7; background:#0284c7; color:#fff; font-weight:800; font-size:0.76rem; text-transform:uppercase;">📥 PDF</button>
+                <button type="button" onclick="closeFDAModal(); loadRecipe('${recipeId}');" style="flex:1; padding:0.65rem; border-radius:8px; border:2px solid #000; background:#000; color:#fff; font-weight:800; font-size:0.76rem; text-transform:uppercase;">+ Stage 1 Portion</button>
             </div>
         </div>
     `;
@@ -1147,6 +1547,106 @@ function loadRecipe(id) {
     sortSandboxByCulinaryOrder();
     saveToMemory(); updateSandboxUI(); closeCookbookModal();
     triggerActionCue(`Staged "${recipe.name}"!`, "🍳");
+}
+
+// ============================================================================
+// ADD INGREDIENT TO RECIPE FROM FDA NUTRITION LABEL OR PANTRY
+// ============================================================================
+
+function handleAddFromFDAToRecipe(foodId, gramWeight) {
+    hapticTap(10);
+    const targetId = pantryRecipeTargetId || (document.getElementById('cookbook-modal').style.display === 'flex' ? activeCookbookRecipeId : null);
+    if (targetId && savedRecipes[targetId]) {
+        addFoodToSpecificRecipe(targetId, foodId, gramWeight);
+        return;
+    }
+
+    const body = document.getElementById('recipe-picker-body');
+    const f = foodDatabase[foodId];
+    if (!body || !f) return;
+
+    const recipeEntries = Object.entries(savedRecipes);
+    let existingListHtml = '';
+    if (recipeEntries.length === 0) {
+        existingListHtml = `<p class="empty-state" style="margin:0.5rem 0;">No saved recipes yet. Create a new recipe below!</p>`;
+    } else {
+        existingListHtml = recipeEntries.map(([rId, rec]) => `
+            <button type="button" class="secondary-btn" style="text-align:left; display:flex; justify-content:space-between; align-items:center; padding:0.75rem 1rem;" onclick="addFoodToSpecificRecipe('${rId}', '${foodId}', ${gramWeight})">
+                <span>🍳 <strong>${rec.name}</strong></span>
+                <span style="font-family:var(--font-mono); font-size:0.75rem; color:var(--text-fib);">+ Add ${gramWeight}g →</span>
+            </button>
+        `).join('');
+    }
+
+    body.innerHTML = `
+        <div style="font-size:0.86rem; font-weight:800; color:var(--panel-text-main);">
+            Adding <strong>${gramWeight}g of ${f.emoji.startsWith('http') ? '' : f.emoji} ${f.name}</strong> to Cookbook:
+        </div>
+        <div style="display:flex; flex-direction:column; gap:0.5rem; max-height:220px; overflow-y:auto; width:100%;">
+            ${existingListHtml}
+        </div>
+        <div style="border-top:1px solid var(--border-light); padding-top:0.8rem; width:100%; display:flex; flex-direction:column; gap:0.5rem;">
+            <label style="font-size:0.72rem; font-family:var(--font-mono); font-weight:800; color:var(--text-pro); text-transform:uppercase;">Or Start a New Recipe With This Ingredient:</label>
+            <div style="display:flex; gap:0.45rem; width:100%;">
+                <input type="text" id="picker-new-recipe-name" placeholder="New recipe name..." style="flex:1; padding:0.65rem 0.85rem; border-radius:10px; border:1.5px solid var(--border-light); background:var(--input-bg); color:var(--panel-text-main); font-weight:700;">
+                <button type="button" class="primary-btn" style="width:auto; padding:0.65rem 1rem;" onclick="createNewRecipeWithFood('${foodId}', ${gramWeight})">+ Create</button>
+            </div>
+        </div>
+    `;
+    document.getElementById('recipe-picker-modal').style.display = 'flex';
+}
+
+function closeRecipePickerModal() {
+    document.getElementById('recipe-picker-modal').style.display = 'none';
+}
+
+function addFoodToSpecificRecipe(recipeId, foodId, gramWeight) {
+    const recipe = savedRecipes[recipeId];
+    const food = foodDatabase[foodId];
+    if (!recipe || !food) return;
+
+    const existing = recipe.items.find(i => i.id === foodId);
+    if (existing) existing.weight = Math.round((existing.weight + gramWeight) * 10) / 10;
+    else recipe.items.push({ id: foodId, weight: gramWeight });
+
+    sortRecipeItemsByCulinaryOrder(recipe);
+    pantryRecipeTargetId = null;
+    pantrySelections.clear();
+    saveToMemory();
+
+    closeRecipePickerModal();
+    closeFDAModal();
+    closePantry();
+
+    activeCookbookRecipeId = recipeId;
+    renderCookbook();
+    document.getElementById('cookbook-modal').style.display = 'flex';
+    triggerActionCue(`Added ${gramWeight}g ${food.name.split(' (')[0]} to "${recipe.name}"!`, "🍳");
+}
+
+function createNewRecipeWithFood(foodId, gramWeight) {
+    const inp = document.getElementById('picker-new-recipe-name');
+    const name = (inp && inp.value.trim()) ? inp.value.trim() : "New Custom Recipe";
+    const newId = 'recipe_' + Date.now();
+    savedRecipes[newId] = {
+        name,
+        prep: "",
+        portions: 1,
+        batchMult: 1,
+        items: [{ id: foodId, weight: gramWeight }]
+    };
+    pantryRecipeTargetId = null;
+    pantrySelections.clear();
+    saveToMemory();
+
+    closeRecipePickerModal();
+    closeFDAModal();
+    closePantry();
+
+    activeCookbookRecipeId = newId;
+    renderCookbook();
+    document.getElementById('cookbook-modal').style.display = 'flex';
+    triggerActionCue(`Created "${name}" with ${gramWeight}g ${foodDatabase[foodId].name.split(' (')[0]}!`, "🍳");
 }
 
 // PERSONAL FOOD CREATOR & PANTRY
@@ -1259,7 +1759,8 @@ function setPantryViewMode(mode) {
     renderPantry();
 }
 
-function openPantry(filterValue = 'all') {
+function openPantry(filterValue = 'all', forRecipeId = null) {
+    pantryRecipeTargetId = forRecipeId;
     pantrySelections.clear();
     openPantryCategories.clear();
     const searchInput = document.getElementById('pantry-search');
@@ -1271,13 +1772,33 @@ function openPantry(filterValue = 'all') {
     const btnList = document.getElementById('pantry-mode-list');
     if (btnIcons) btnIcons.classList.toggle('active', mode === 'icons');
     if (btnList) btnList.classList.toggle('active', mode === 'list');
+
+    const titleEl = document.getElementById('pantry-modal-title');
+    const submitBtn = document.getElementById('pantry-submit-btn');
+    if (pantryRecipeTargetId && savedRecipes[pantryRecipeTargetId]) {
+        const rName = savedRecipes[pantryRecipeTargetId].name;
+        if (titleEl) titleEl.textContent = `Pantry → ${rName}`;
+        if (submitBtn) submitBtn.textContent = `🍳 Add Selected to "${rName}"`;
+    } else {
+        if (titleEl) titleEl.textContent = 'The Pantry';
+        if (submitBtn) submitBtn.textContent = 'Add Selected to Staging';
+    }
+
     setFilter(filterValue);
     document.getElementById('pantry-modal').style.display = 'flex';
 }
+
 function closePantry() {
     const searchInput = document.getElementById('pantry-search');
     if (searchInput) searchInput.value = '';
     document.getElementById('pantry-modal').style.display = 'none';
+    if (pantryRecipeTargetId && savedRecipes[pantryRecipeTargetId]) {
+        const returnId = pantryRecipeTargetId;
+        pantryRecipeTargetId = null;
+        activeCookbookRecipeId = returnId;
+        renderCookbook();
+        document.getElementById('cookbook-modal').style.display = 'flex';
+    }
 }
 
 function setFilter(filterType) {
@@ -1496,9 +2017,10 @@ function openFDAModal(foodId, unitQty = null, unitKey = 'g') {
                 <div style="font-size:0.72rem; font-family:var(--font-mono); font-weight:800; color:#000; text-transform:uppercase; margin-bottom:0.3rem;">Personal Affinity Rating</div>
                 <div style="display:flex; justify-content:center; gap:1rem;">${stars}</div>
             </div>
-            <div style="display:flex; gap:0.5rem; margin-top:1rem;">
-                <button type="button" onclick="openCustomFoodModal('${food.id}')" style="flex:1; padding:0.65rem; border-radius:8px; border:2px solid #000; background:#f1f5f9; color:#000; font-weight:800; font-size:0.78rem; text-transform:uppercase;">✎ Edit Food</button>
-                <button type="button" onclick="quickStageFromFDA('${food.id}', ${gramWeight})" style="flex:1; padding:0.65rem; border-radius:8px; border:2px solid #000; background:#000; color:#fff; font-weight:800; font-size:0.78rem; text-transform:uppercase;">+ Stage (${gramWeight}g)</button>
+            <div style="display:flex; gap:0.45rem; margin-top:1rem; flex-wrap:wrap;">
+                <button type="button" onclick="openCustomFoodModal('${food.id}')" style="flex:1; padding:0.62rem 0.4rem; border-radius:8px; border:2px solid #000; background:#f1f5f9; color:#000; font-weight:800; font-size:0.74rem; text-transform:uppercase;">✎ Edit</button>
+                <button type="button" onclick="handleAddFromFDAToRecipe('${food.id}', ${gramWeight})" style="flex:1.3; padding:0.62rem 0.4rem; border-radius:8px; border:2px solid #059669; background:#059669; color:#fff; font-weight:800; font-size:0.74rem; text-transform:uppercase;">🍳 + Recipe (${gramWeight}g)</button>
+                <button type="button" onclick="quickStageFromFDA('${food.id}', ${gramWeight})" style="flex:1.3; padding:0.62rem 0.4rem; border-radius:8px; border:2px solid #000; background:#000; color:#fff; font-weight:800; font-size:0.74rem; text-transform:uppercase;">+ Stage (${gramWeight}g)</button>
             </div>
         </div>
     `;
@@ -1511,6 +2033,7 @@ function quickStageFromFDA(foodId, gramWeight) {
     if (existing) existing.weight += gramWeight;
     else sandboxMeal.push({ id: foodId, weight: gramWeight, locked: false });
     sortSandboxByCulinaryOrder();
+    pantryRecipeTargetId = null;
     pantrySelections.clear();
     const searchInput = document.getElementById('pantry-search');
     if (searchInput) searchInput.value = '';
@@ -1540,6 +2063,31 @@ function togglePantrySelection(id, cardElement) {
 
 function sendToSandbox() {
     const count = pantrySelections.size;
+
+    if (pantryRecipeTargetId && savedRecipes[pantryRecipeTargetId]) {
+        const targetId = pantryRecipeTargetId;
+        const recipe = savedRecipes[targetId];
+        pantrySelections.forEach(id => {
+            const food = foodDatabase[id];
+            if (!food) return;
+            const existing = recipe.items.find(it => it.id === id);
+            if (existing) existing.weight += food.defaultWeight;
+            else recipe.items.push({ id, weight: food.defaultWeight });
+        });
+        sortRecipeItemsByCulinaryOrder(recipe);
+        pantrySelections.clear();
+        pantryRecipeTargetId = null;
+        const searchInput = document.getElementById('pantry-search');
+        if (searchInput) searchInput.value = '';
+        document.getElementById('pantry-modal').style.display = 'none';
+        saveToMemory();
+        activeCookbookRecipeId = targetId;
+        renderCookbook();
+        document.getElementById('cookbook-modal').style.display = 'flex';
+        if (count > 0) triggerActionCue(`Added ${count} Ingredient${count > 1 ? 's' : ''} to "${recipe.name}"!`, "🍳");
+        return;
+    }
+
     pantrySelections.forEach(id => {
         if (!sandboxMeal.find(item => item.id === id)) {
             sandboxMeal.push({ id, weight: foodDatabase[id].defaultWeight, locked: false });
